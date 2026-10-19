@@ -75,8 +75,7 @@
   </main>
 
   <script>
-    // Ваш личный постоянный вебхук n8n на Beget
-    const N8N_URL = 'https://drickquifouruboz.beget.app/webhook/cdf6e608-7de6-439d-b0aa-49330642a3f1';
+    const N8N_URL = 'https://beget.app';
     const vkBridge = window.vkBridge;
 
     let availableDates = [];
@@ -102,7 +101,7 @@
       return `${y}-${m}-${d}`;
     }
 
-    // Оптимизированная функция обмена данными с вашим вебхуком
+    // Безопасная функция запроса с обходом CORS
     async function requestN8n(action, extra = {}) {
       const payload = {
         source: 'vk_calendar',
@@ -110,27 +109,29 @@
         ...extra
       };
 
-      const response = await fetch(N8N_URL, {
-        method: 'POST',
-        mode: 'cors',
-        headers: { 
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(payload)
-      });
+      try {
+        const response = await fetch(N8N_URL, {
+          method: 'POST',
+          mode: 'cors', // n8n требует cors для отдачи ответа
+          headers: { 
+            'Content-Type': 'text/plain' // Использование text/plain снижает строгость CORS проверок в браузере
+          },
+          body: JSON.stringify(payload)
+        });
 
-      if (!response.ok) {
-        throw new Error(`Ошибка n8n: HTTP ${response.status}`);
-      }
+        if (!response.ok) {
+          throw new Error(`Сервер n8n вернул код ошибки: ${response.status}`);
+        }
 
-      const result = await response.json();
-      if (result.success === false) {
-        throw new Error(result.message || 'Не удалось выполнить запрос');
+        const result = await response.json();
+        return result;
+      } catch (e) {
+        console.error('Ошибка сети/CORS:', e);
+        // Если упали по CORS, возвращаем структуру ошибки, чтобы сайт не зависал
+        return { success: false, message: 'Блокировка CORS. Запрос не дошел до n8n.' };
       }
-      return result;
     }
 
-    // Шаг 2: Загрузка слотов времени при выборе конкретной даты
     async function loadTimes(date) {
       selectedDate = date;
       selectedTime = null;
@@ -141,6 +142,11 @@
 
       try {
         const result = await requestN8n('times', { date });
+        
+        if (result.success === false) {
+          throw new Error(result.message);
+        }
+
         const times = result.times || result.data?.times || result.data || [];
 
         slotsEl.className = 'slots';
@@ -170,25 +176,41 @@
           });
           slotsEl.appendChild(btn);
         });
-
-        if (!slotsEl.children.length) {
-          slotsEl.className = 'status';
-          slotsEl.textContent = 'Нет доступных слотов.';
-        }
       } catch (error) {
         slotsEl.className = 'status error';
-        slotsEl.textContent = 'Не удалось загрузить время. Попробуйте ещё раз.';
+        slotsEl.textContent = 'Не удалось загрузить время. Проверьте CORS в n8n.';
       }
     }
 
-    // Шаг 1: Старт при открытии страницы — запрашиваем массив доступных дат
     async function init() {
       try {
         if (vkBridge) {
           await vkBridge.send('VKWebAppInit');
         }
 
+        // Рендерим пустой календарь СРАЗУ, чтобы сайт не висел белым экраном
+        calendar = new AirDatepicker('#calendar', {
+          inline: true,
+          minDate: new Date(),
+          dateFormat: 'yyyy-MM-dd',
+          onRenderCell({ date, cellType }) {
+            if (cellType !== 'day') return;
+            // Если даты еще не загружены, временно отключаем все дни
+            if (availableDates.length === 0) return { disabled: true };
+            return { disabled: !availableDates.includes(formatDate(date)) };
+          },
+          onSelect({ date }) {
+            if (date) loadTimes(formatDate(date));
+          }
+        });
+
+        // Только ПОСЛЕ отрисовки интерфейса запрашиваем данные у n8n
         const result = await requestN8n('dates');
+        
+        if (result.success === false) {
+          throw new Error(result.message);
+        }
+
         availableDates = result.dates || result.data?.dates || result.data || [];
 
         if (!availableDates.length) {
@@ -197,29 +219,17 @@
           return;
         }
 
-        // Рендерим календарь и открываем только те даты, которые вернул ваш n8n
-        calendar = new AirDatepicker('#calendar', {
-          inline: true,
-          minDate: new Date(),
-          dateFormat: 'yyyy-MM-dd',
-          onRenderCell({ date, cellType }) {
-            if (cellType !== 'day') return;
-            return { disabled: !availableDates.includes(formatDate(date)) };
-          },
-          onSelect({ date }) {
-            if (date) loadTimes(formatDate(date));
-          }
-        });
-
+        // Обновляем календарь полученными датами
+        calendar.update();
         slotsEl.className = 'status';
         slotsEl.textContent = 'Выберите доступную дату в календаре.';
+
       } catch (error) {
         slotsEl.className = 'status error';
-        slotsEl.textContent = error.message || 'Не удалось загрузить даты. Попробуйте позже.';
+        slotsEl.textContent = error.message || 'Ошибка подключения к n8n.';
       }
     }
 
-    // Шаг 3: Сохранение выбранных данных по кнопке «Подтвердить»
     confirmBtn.addEventListener('click', async () => {
       if (busy || !selectedDate || !selectedTime) return;
 
@@ -235,7 +245,7 @@
         });
 
         if (result.success !== true) {
-          throw new Error('n8n не подтвердил сохранение выбора.');
+          throw new Error('n8n не подтвердил сохранение.');
         }
 
         showMessage('Дата и время сохранены. Возвращаемся в чат…');
@@ -246,11 +256,10 @@
         busy = false;
         confirmBtn.disabled = false;
         confirmBtn.textContent = `Подтвердить ${selectedTime}`;
-        showMessage(error.message || 'Ошибка сохранения. Повторите попытку.', true);
+        showMessage(error.message || 'Ошибка сохранения.', true);
       }
     });
 
-    // Моментальный вызов при открытии
     init();
   </script>
 </body>
