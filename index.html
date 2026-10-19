@@ -75,7 +75,7 @@
   </main>
 
   <script>
-    // 💥 ИСПРАВЛЕНО: Ссылка строго с HTTPS, чтобы GitHub Pages не блокировал запрос
+    // Ваш личный постоянный вебхук n8n на Beget
     const N8N_URL = 'https://drickquifouruboz.beget.app/webhook/cdf6e608-7de6-439d-b0aa-49330642a3f1';
     const vkBridge = window.vkBridge;
 
@@ -102,16 +102,21 @@
       return `${y}-${m}-${d}`;
     }
 
-    // 💥 ИСПРАВЛЕНО: Убраны лишние параметры мастера и услуг, шлем только чистый экшн
+    // Оптимизированная функция обмена данными с вашим вебхуком
     async function requestN8n(action, extra = {}) {
+      const payload = {
+        source: 'vk_calendar',
+        action: action,
+        ...extra
+      };
+
       const response = await fetch(N8N_URL, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          source: 'vk_calendar',
-          action,
-          ...extra
-        })
+        mode: 'cors',
+        headers: { 
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(payload)
       });
 
       if (!response.ok) {
@@ -125,6 +130,7 @@
       return result;
     }
 
+    // Шаг 2: Загрузка слотов времени при выборе конкретной даты
     async function loadTimes(date) {
       selectedDate = date;
       selectedTime = null;
@@ -175,13 +181,13 @@
       }
     }
 
+    // Шаг 1: Старт при открытии страницы — запрашиваем массив доступных дат
     async function init() {
       try {
         if (vkBridge) {
           await vkBridge.send('VKWebAppInit');
         }
 
-        // 💥 ИСПРАВЛЕНО: Убрана блокирующая проверка параметров staff_id и service_ids
         const result = await requestN8n('dates');
         availableDates = result.dates || result.data?.dates || result.data || [];
 
@@ -191,6 +197,7 @@
           return;
         }
 
+        // Рендерим календарь и открываем только те даты, которые вернул ваш n8n
         calendar = new AirDatepicker('#calendar', {
           inline: true,
           minDate: new Date(),
@@ -212,6 +219,7 @@
       }
     }
 
+    // Шаг 3: Сохранение выбранных данных по кнопке «Подтвердить»
     confirmBtn.addEventListener('click', async () => {
       if (busy || !selectedDate || !selectedTime) return;
 
@@ -242,6 +250,7 @@
       }
     });
 
+    // Моментальный вызов при открытии
     init();
   </script>
 </body>
