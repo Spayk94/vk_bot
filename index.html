@@ -1,151 +1,267 @@
+
 <!DOCTYPE html>
 <html lang="ru">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Выбор даты и времени</title>
-    <!-- VK Bridge для работы внутри мини-апп -->
-    <script src="https://unpkg.com"></script>
-    <!-- Красивый календарь Air Datepicker -->
-    <link rel="stylesheet" href="https://jsdelivr.net">
-    <script src="https://jsdelivr.net"></script>
-    <style>
-        body { font-family: -apple-system, BlinkMacSystemFont, "Roboto", sans-serif; padding: 12px; background: #ebedf0; margin: 0; }
-        .container { background: #fff; padding: 16px; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.03); max-width: 400px; margin: 0 auto; }
-        h3, h4 { margin-top: 0; color: #2c3e50; font-size: 16px; }
-        #calendar { width: 100%; display: flex; justify-content: center; }
-        .air-datepicker { width: 100%; border: none; --ad-accent-color: #4986cc; }
-        .time-slots { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-top: 12px; max-height: 140px; overflow-y: auto; }
-        .time-btn { padding: 10px; background: #f0f2f5; border: none; border-radius: 8px; text-align: center; cursor: pointer; font-size: 14px; font-weight: 500; }
-        .time-btn.active { background: #4986cc; color: white; }
-        .submit-btn { width: 100%; padding: 14px; background: #4986cc; color: white; border: none; border-radius: 8px; margin-top: 20px; font-weight: bold; font-size: 16px; cursor: pointer; }
-        .submit-btn:disabled { background: #a5c3e8; cursor: not-allowed; }
-        .loader { text-align: center; color: #828282; padding: 20px 0; }
-    </style>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#ffffff">
+  <title>Выбор даты и времени</title>
+
+  <script src="https://unpkg.com/@vkontakte/vk-bridge/dist/browser.min.js"></script>
+  <link rel="stylesheet"
+    href="https://cdn.jsdelivr.net/npm/air-datepicker@3.5.3/air-datepicker.css">
+  <script src="https://cdn.jsdelivr.net/npm/air-datepicker@3.5.3/air-datepicker.js"></script>
+
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      margin: 0; padding: 16px;
+      font-family: -apple-system, BlinkMacSystemFont, Roboto, sans-serif;
+      background: var(--vkui--color_background, #f2f3f5);
+      color: var(--vkui--color_text_primary, #222);
+    }
+    .container {
+      max-width: 420px; margin: auto; padding: 18px;
+      border-radius: 18px; background: #fff;
+      box-shadow: 0 3px 16px #0000000a;
+    }
+    h2 { font-size: 20px; margin: 0 0 16px; }
+    h3 { font-size: 16px; margin: 22px 0 12px; }
+    #calendar { display: flex; justify-content: center; }
+    .air-datepicker { width: 100%; border: 0; }
+    .air-datepicker-cell.-disabled- { color: #c7c9cc; }
+    .air-datepicker-cell.-selected- {
+      background: #2688eb !important; color: white !important;
+    }
+    .status {
+      padding: 12px; margin-top: 12px; border-radius: 10px;
+      background: #f2f3f5; color: #626d7a; font-size: 14px;
+    }
+    .slots {
+      display: grid; grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 8px;
+    }
+    .time-btn {
+      padding: 12px 4px; border: 1px solid #dce0e5;
+      background: #fff; border-radius: 10px;
+      color: #222; font-size: 15px; cursor: pointer;
+    }
+    .time-btn.active {
+      color: #fff; background: #2688eb; border-color: #2688eb;
+    }
+    .primary {
+      width: 100%; padding: 15px; margin-top: 18px;
+      border: 0; border-radius: 12px; background: #2688eb;
+      color: #fff; font-size: 16px; font-weight: 600;
+      cursor: pointer;
+    }
+    .primary:disabled { opacity: .45; cursor: not-allowed; }
+    .hidden { display: none; }
+    .error { color: #c62828; }
+  </style>
 </head>
 <body>
-
-<div class="container">
-    <h3>Выберите дату записи</h3>
+  <main class="container">
+    <h2>Выберите дату записи</h2>
     <div id="calendar"></div>
-    
-    <h4>Доступное время:</h4>
-    <div id="slots" class="time-slots">Загрузка...</div>
-    
-    <button class="submit-btn" id="bookBtn" disabled>Подтвердить бронь</button>
-</div>
 
-<script>
-    vkBridge.send('VKWebAppInit');
+    <h3>Доступное время</h3>
+    <div id="slots" class="status">
+      Загружаем доступные даты…
+    </div>
 
-    // ⚠️ УКАЖИТЕ АДРЕС ВАШЕГО СЕРВЕРА n8n
-    const N8N_URL = 'https://your-n8n-domain.com';
+    <button id="confirm" class="primary" disabled>
+      Выберите время
+    </button>
+    <div id="message" class="status hidden" role="status"></div>
+  </main>
 
+  <script>
+    // Заменим на настроенный адрес обмена данными с n8n.
+    const N8N_URL =
+      'https://drickquifouruboz.beget.app/webhook/cdf6e608-7de6-439d-b0aa-49330642a3f1';
+
+    const params = new URLSearchParams(location.hash.slice(1));
+    const staffId = params.get('staff_id');
+    // Передаём все выбранные услуги, например: service_ids=123,456
+    const serviceIds = (params.get('service_ids') || '')
+      .split(',').map(x => x.trim()).filter(Boolean);
+    const vkBridge = window.vkBridge;
+
+    let availableDates = [];
     let selectedDate = null;
     let selectedTime = null;
-    let availableSlotsData = {}; 
+    let calendar = null;
+    let busy = false;
 
-    // Извлекаем переданные ботом параметры из hash (например, #staff_id=123&service_id=456)
-    const hashParams = new URLSearchParams(window.location.hash.substring(1));
-    const staffId = hashParams.get('staff_id');
-    const serviceId = hashParams.get('service_id');
+    const slotsEl = document.getElementById('slots');
+    const confirmBtn = document.getElementById('confirm');
+    const messageEl = document.getElementById('message');
 
-    const slotsContainer = document.getElementById('slots');
-
-    // 1. Запрашиваем у n8n расписание под конкретного мастера и услугу
-    fetch(`${N8N_URL}/get-slots?staff_id=${staffId}&service_id=${serviceId}`)
-        .then(res => res.json())
-        .then(data => {
-            availableSlotsData = data; // Ожидаем формат: {"2026-10-25": ["10:00", "12:30"], "2026-10-26": ["09:00"]}
-            slotsContainer.innerHTML = 'Выберите день на календаре выше';
-            initCalendar();
-        })
-        .catch(() => {
-            slotsContainer.innerHTML = '<div style="color:red">Ошибка загрузки дат</div>';
-        });
-
-    // 2. Инициализация календаря
-    function initCalendar() {
-        new AirDatepicker('#calendar', {
-            inline: true,
-            minDate: new Date(),
-            onRenderCell({date, cellType}) {
-                if (cellType === 'day') {
-                    const localDateStr = formatDate(date);
-                    // Если даты нет в ответе n8n — блокируем её
-                    const isAvailable = availableSlotsData[localDateStr] && availableSlotsData[localDateStr].length > 0;
-                    return { disabled: !isAvailable }
-                }
-            },
-            onSelect({date}) {
-                if (!date) return;
-                selectedDate = formatDate(date);
-                renderTimeSlots(availableSlotsData[selectedDate]);
-            }
-        });
-    }
-
-    // 3. Вывод кнопок времени
-    function renderTimeSlots(slots) {
-        slotsContainer.innerHTML = '';
-        if (!slots || slots.length === 0) {
-            slotsContainer.innerHTML = 'Нет свободного времени';
-            return;
-        }
-        slots.forEach(time => {
-            const btn = document.createElement('button');
-            btn.className = 'time-btn';
-            btn.innerText = time;
-            btn.onclick = () => {
-                document.querySelectorAll('.time-btn').forEach(b => b.classList.remove('active'));
-                btn.classList.add('active');
-                selectedTime = time;
-                document.getElementById('bookBtn').disabled = false;
-            };
-            slotsContainer.appendChild(btn);
-        });
+    function showMessage(text, error = false) {
+      messageEl.textContent = text;
+      messageEl.classList.remove('hidden', 'error');
+      if (error) messageEl.classList.add('error');
     }
 
     function formatDate(date) {
-        const offset = date.getTimezoneOffset();
-        const localDate = new Date(date.getTime() - (offset * 60 * 1000));
-        return localDate.toISOString().split('T')[0];
+      const y = date.getFullYear();
+      const m = String(date.getMonth() + 1).padStart(2, '0');
+      const d = String(date.getDate()).padStart(2, '0');
+      return `${y}-${m}-${d}`;
     }
 
-    // 4. Отправка итоговой записи в n8n
-    document.getElementById('bookBtn').onclick = async () => {
-        document.getElementById('bookBtn').disabled = true;
-        document.getElementById('bookBtn').innerText = 'Запись...';
-        
-        try {
-            // Запрашиваем инфо о юзере у ВК (Имя, Фамилия, ID)
-            const userData = await vkBridge.send('VKWebAppGetUserInfo').catch(() => ({id: 0, first_name: 'Клиент', last_name: ''}));
-            
-            const response = await fetch(`${N8N_URL}/create-booking`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    vk_id: userData.id,
-                    first_name: userData.first_name,
-                    last_name: userData.last_name,
-                    staff_id: staffId,
-                    service_id: serviceId,
-                    date: selectedDate,
-                    time: selectedTime
-                })
-            });
+    async function requestN8n(action, extra = {}) {
+      const response = await fetch(N8N_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          source: 'vk_calendar',
+          action,
+          staff_id: staffId,
+          service_ids: serviceIds,
+          ...extra
+        })
+      });
 
-            if (response.ok) {
-                // Закрываем окно мини-апп, возвращаем человека в диалог
-                vkBridge.send('VKWebAppClose', { status: 'success' });
-            } else {
-                alert('Ошибка создания записи.');
-                document.getElementById('bookBtn').disabled = false;
-            }
-        } catch (error) {
-            document.getElementById('bookBtn').disabled = false;
+      if (!response.ok) {
+        throw new Error(`Ошибка n8n: HTTP ${response.status}`);
+      }
+
+      const result = await response.json();
+      if (result.success === false) {
+        throw new Error(result.message || 'Не удалось выполнить запрос');
+      }
+      return result;
+    }
+
+    async function loadTimes(date) {
+      selectedDate = date;
+      selectedTime = null;
+      confirmBtn.disabled = true;
+      confirmBtn.textContent = 'Выберите время';
+      slotsEl.className = 'status';
+      slotsEl.textContent = 'Загружаем свободное время…';
+
+      try {
+        const result = await requestN8n('times', { date });
+        const times = result.times || result.data?.times || [];
+
+        slotsEl.className = 'slots';
+        slotsEl.replaceChildren();
+
+        if (!times.length) {
+          slotsEl.className = 'status';
+          slotsEl.textContent = 'На эту дату свободного времени нет.';
+          return;
         }
-    };
-</script>
+
+        times.forEach(item => {
+          const time = typeof item === 'string' ? item : item.time;
+          if (!time) return;
+
+          const btn = document.createElement('button');
+          btn.type = 'button';
+          btn.className = 'time-btn';
+          btn.textContent = time;
+          btn.addEventListener('click', () => {
+            document.querySelectorAll('.time-btn')
+              .forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            selectedTime = time;
+            confirmBtn.disabled = false;
+            confirmBtn.textContent = `Подтвердить ${time}`;
+            messageEl.classList.add('hidden');
+          });
+          slotsEl.appendChild(btn);
+        });
+
+        if (!slotsEl.children.length) {
+          slotsEl.className = 'status';
+          slotsEl.textContent = 'Нет доступных слотов.';
+        }
+      } catch (error) {
+        slotsEl.className = 'status error';
+        slotsEl.textContent = 'Не удалось загрузить время. Попробуйте ещё раз.';
+      }
+    }
+
+    async function init() {
+      try {
+        if (vkBridge) {
+          await vkBridge.send('VKWebAppInit');
+        }
+
+        if (!staffId || !serviceIds.length) {
+          throw new Error('Не переданы мастер или услуги.');
+        }
+
+        const result = await requestN8n('dates');
+        availableDates = result.dates || result.data?.dates || [];
+
+        if (!availableDates.length) {
+          slotsEl.className = 'status';
+          slotsEl.textContent = 'Нет доступных дат для записи.';
+          return;
+        }
+
+        calendar = new AirDatepicker('#calendar', {
+          inline: true,
+          minDate: new Date(),
+          dateFormat: 'yyyy-MM-dd',
+          onRenderCell({ date, cellType }) {
+            if (cellType !== 'day') return;
+            return { disabled: !availableDates.includes(formatDate(date)) };
+          },
+          onSelect({ date }) {
+            if (date) loadTimes(formatDate(date));
+          }
+        });
+
+        slotsEl.className = 'status';
+        slotsEl.textContent = 'Выберите доступную дату в календаре.';
+      } catch (error) {
+        slotsEl.className = 'status error';
+        slotsEl.textContent =
+          error.message || 'Не удалось загрузить даты. Попробуйте позже.';
+      }
+    }
+
+    confirmBtn.addEventListener('click', async () => {
+      if (busy || !selectedDate || !selectedTime) return;
+
+      busy = true;
+      confirmBtn.disabled = true;
+      confirmBtn.textContent = 'Сохраняем выбор…';
+      messageEl.classList.add('hidden');
+
+      try {
+        const result = await requestN8n('select', {
+          date: selectedDate,
+          time: selectedTime
+        });
+
+        if (result.success !== true) {
+          throw new Error('n8n не подтвердил сохранение выбора.');
+        }
+
+        showMessage('Дата и время сохранены. Возвращаемся в чат…');
+        if (vkBridge) {
+          await vkBridge.send('VKWebAppClose', { status: 'success' });
+        }
+      } catch (error) {
+        showMessage(
+          'Не удалось сохранить выбор. Попробуйте ещё раз.',
+          true
+        );
+        confirmBtn.disabled = false;
+        confirmBtn.textContent = `Подтвердить ${selectedTime}`;
+      } finally {
+        busy = false;
+      }
+    });
+
+    init();
+  </script>
 </body>
 </html>
