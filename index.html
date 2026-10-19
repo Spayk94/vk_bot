@@ -75,11 +75,8 @@
   </main>
 
   <script>
+    // 💥 ИСПРАВЛЕНО: Ссылка строго с HTTPS, чтобы GitHub Pages не блокировал запрос
     const N8N_URL = 'https://drickquifouruboz.beget.app/webhook/cdf6e608-7de6-439d-b0aa-49330642a3f1';
-
-    const params = new URLSearchParams(location.hash.slice(1));
-    const staffId = params.get('staff_id');
-    const serviceIds = (params.get('service_ids') || '').split(',').map(x => x.trim()).filter(Boolean);
     const vkBridge = window.vkBridge;
 
     let availableDates = [];
@@ -105,7 +102,7 @@
       return `${y}-${m}-${d}`;
     }
 
-    // Универсальная функция запроса к вашему вебхуку n8n
+    // 💥 ИСПРАВЛЕНО: Убраны лишние параметры мастера и услуг, шлем только чистый экшн
     async function requestN8n(action, extra = {}) {
       const response = await fetch(N8N_URL, {
         method: 'POST',
@@ -113,8 +110,6 @@
         body: JSON.stringify({
           source: 'vk_calendar',
           action,
-          staff_id: staffId,
-          service_ids: serviceIds,
           ...extra
         })
       });
@@ -130,7 +125,6 @@
       return result;
     }
 
-    // 2️⃣ Второй шаг: Запрос слотов времени для выбранной даты
     async function loadTimes(date) {
       selectedDate = date;
       selectedTime = null;
@@ -140,10 +134,7 @@
       slotsEl.textContent = 'Загружаем свободное время…';
 
       try {
-        // Отправляем запрос на вебхук с выбранной датой
         const result = await requestN8n('times', { date });
-        
-        // Ожидаем от n8n массив строк вида ["10:00", "11:30"] либо внутри data
         const times = result.times || result.data?.times || result.data || [];
 
         slotsEl.className = 'slots';
@@ -184,21 +175,14 @@
       }
     }
 
-    // 1️⃣ Первый шаг: Запуск при открытии приложения
     async function init() {
       try {
         if (vkBridge) {
           await vkBridge.send('VKWebAppInit');
         }
 
-        if (!staffId || !serviceIds.length) {
-          throw new Error('Не переданы мастер или услуги.');
-        }
-
-        // Запрашиваем у n8n список доступных для записи дат
+        // 💥 ИСПРАВЛЕНО: Убрана блокирующая проверка параметров staff_id и service_ids
         const result = await requestN8n('dates');
-        
-        // Ожидаем от n8n массив строк вида ["2026-10-25", "2026-10-26"]
         availableDates = result.dates || result.data?.dates || result.data || [];
 
         if (!availableDates.length) {
@@ -207,7 +191,6 @@
           return;
         }
 
-        // Рендерим календарь, разблокируя только даты из ответа n8n
         calendar = new AirDatepicker('#calendar', {
           inline: true,
           minDate: new Date(),
@@ -217,7 +200,6 @@
             return { disabled: !availableDates.includes(formatDate(date)) };
           },
           onSelect({ date }) {
-            // При клике на разблокированную дату запускаем шаг 2
             if (date) loadTimes(formatDate(date));
           }
         });
@@ -230,7 +212,6 @@
       }
     }
 
-    // 3️⃣ Третий шаг: Клик по кнопке «Подтвердить»
     confirmBtn.addEventListener('click', async () => {
       if (busy || !selectedDate || !selectedTime) return;
 
@@ -240,7 +221,6 @@
       messageEl.classList.add('hidden');
 
       try {
-        // Отправляем финальные данные для записи в таблицу
         const result = await requestN8n('select', {
           date: selectedDate,
           time: selectedTime
@@ -262,7 +242,6 @@
       }
     });
 
-    // Автоматический старт первого шага при открытии страницы
     init();
   </script>
 </body>
