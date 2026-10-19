@@ -8,7 +8,8 @@
 
   <script src="https://unpkg.com"></script>
   <link rel="stylesheet" href="https://jsdelivr.net">
-  <script src="https://jsdelivr.net"></script>
+  <!-- 💥 ИСПРАВЛЕНО: Перенесли скрипт календаря выше и добавили defer -->
+  <script src="https://jsdelivr.net" defer></script>
 
   <style>
     * { box-sizing: border-box; }
@@ -101,7 +102,6 @@
       return `${y}-${m}-${d}`;
     }
 
-    // Безопасная функция запроса с обходом CORS
     async function requestN8n(action, extra = {}) {
       const payload = {
         source: 'vk_calendar',
@@ -112,9 +112,9 @@
       try {
         const response = await fetch(N8N_URL, {
           method: 'POST',
-          mode: 'cors', // n8n требует cors для отдачи ответа
+          mode: 'cors',
           headers: { 
-            'Content-Type': 'text/plain' // Использование text/plain снижает строгость CORS проверок в браузере
+            'Content-Type': 'text/plain' 
           },
           body: JSON.stringify(payload)
         });
@@ -127,8 +127,7 @@
         return result;
       } catch (e) {
         console.error('Ошибка сети/CORS:', e);
-        // Если упали по CORS, возвращаем структуру ошибки, чтобы сайт не зависал
-        return { success: false, message: 'Блокировка CORS. Запрос не дошел до n8n.' };
+        return { success: false, message: 'Блокировка CORS или ошибка сети.' };
       }
     }
 
@@ -178,7 +177,7 @@
         });
       } catch (error) {
         slotsEl.className = 'status error';
-        slotsEl.textContent = 'Не удалось загрузить время. Проверьте CORS в n8n.';
+        slotsEl.textContent = 'Не удалось загрузить время.';
       }
     }
 
@@ -188,14 +187,18 @@
           await vkBridge.send('VKWebAppInit');
         }
 
-        // Рендерим пустой календарь СРАЗУ, чтобы сайт не висел белым экраном
+        // 💥 ИСПРАВЛЕНО: Защитная проверка на случай, если скрипт календаря всё ещё грузится
+        if (typeof AirDatepicker === 'undefined') {
+          setTimeout(init, 100); // Пробуем перезапуститься через 100мс
+          return;
+        }
+
         calendar = new AirDatepicker('#calendar', {
           inline: true,
           minDate: new Date(),
           dateFormat: 'yyyy-MM-dd',
           onRenderCell({ date, cellType }) {
             if (cellType !== 'day') return;
-            // Если даты еще не загружены, временно отключаем все дни
             if (availableDates.length === 0) return { disabled: true };
             return { disabled: !availableDates.includes(formatDate(date)) };
           },
@@ -204,7 +207,6 @@
           }
         });
 
-        // Только ПОСЛЕ отрисовки интерфейса запрашиваем данные у n8n
         const result = await requestN8n('dates');
         
         if (result.success === false) {
@@ -219,7 +221,6 @@
           return;
         }
 
-        // Обновляем календарь полученными датами
         calendar.update();
         slotsEl.className = 'status';
         slotsEl.textContent = 'Выберите доступную дату в календаре.';
@@ -260,7 +261,10 @@
       }
     });
 
-    init();
+    // 💥 ИСПРАВЛЕНО: Запуск строго после полной загрузки дерева тегов страницы
+    document.addEventListener('DOMContentLoaded', () => {
+      init();
+    });
   </script>
 </body>
 </html>
