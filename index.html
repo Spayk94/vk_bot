@@ -8,8 +8,7 @@
 
   <script src="https://unpkg.com"></script>
   <link rel="stylesheet" href="https://jsdelivr.net">
-  <!-- 💥 ИСПРАВЛЕНО: Перенесли скрипт календаря выше и добавили defer -->
-  <script src="https://jsdelivr.net" defer></script>
+  <script src="https://jsdelivr.net"></script>
 
   <style>
     * { box-sizing: border-box; }
@@ -120,13 +119,13 @@
         });
 
         if (!response.ok) {
-          throw new Error(`Сервер n8n вернул код ошибки: ${response.status}`);
+          throw new Error(`Ошибка HTTP: ${response.status}`);
         }
 
         const result = await response.json();
         return result;
       } catch (e) {
-        console.error('Ошибка сети/CORS:', e);
+        console.error('Ошибка fetch:', e);
         return { success: false, message: 'Блокировка CORS или ошибка сети.' };
       }
     }
@@ -147,7 +146,6 @@
         }
 
         const times = result.times || result.data?.times || result.data || [];
-
         slotsEl.className = 'slots';
         slotsEl.replaceChildren();
 
@@ -187,9 +185,8 @@
           await vkBridge.send('VKWebAppInit');
         }
 
-        // 💥 ИСПРАВЛЕНО: Защитная проверка на случай, если скрипт календаря всё ещё грузится
         if (typeof AirDatepicker === 'undefined') {
-          setTimeout(init, 100); // Пробуем перезапуститься через 100мс
+          setTimeout(init, 100);
           return;
         }
 
@@ -261,10 +258,7 @@
       }
     });
 
-    // 💥 ИСПРАВЛЕНО: Запуск строго после полной загрузки дерева тегов страницы
-    document.addEventListener('DOMContentLoaded', () => {
-      init();
-    });
+    init();
   </script>
 </body>
 </html>
