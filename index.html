@@ -1,0 +1,167 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01//EN" "http://www.w3.org/TR/html4/strict.dtd">
+<html>
+<head>
+  <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+  <meta http-equiv="Content-Style-Type" content="text/css">
+  <title></title>
+  <meta name="Generator" content="Cocoa HTML Writer">
+  <meta name="CocoaVersion" content="2575.4">
+  <style type="text/css">
+    p.p1 {margin: 0.0px 0.0px 0.0px 0.0px; font: 12.0px Helvetica}
+    p.p2 {margin: 0.0px 0.0px 0.0px 0.0px; font: 12.0px Helvetica; min-height: 14.0px}
+  </style>
+</head>
+<body>
+<p class="p1">&lt;!DOCTYPE html&gt;</p>
+<p class="p1">&lt;html lang="ru"&gt;</p>
+<p class="p1">&lt;head&gt;</p>
+<p class="p1"><span class="Apple-converted-space">    </span>&lt;meta charset="UTF-8"&gt;</p>
+<p class="p1"><span class="Apple-converted-space">    </span>&lt;meta name="viewport" content="width=device-width, initial-scale=1.0"&gt;</p>
+<p class="p1"><span class="Apple-converted-space">    </span>&lt;title&gt;Выбор даты и времени&lt;/title&gt;</p>
+<p class="p1"><span class="Apple-converted-space">    </span>&lt;!-- VK Bridge для работы внутри мини-апп --&gt;</p>
+<p class="p1"><span class="Apple-converted-space">    </span>&lt;script src="https://unpkg.com"&gt;&lt;/script&gt;</p>
+<p class="p1"><span class="Apple-converted-space">    </span>&lt;!-- Красивый календарь Air Datepicker --&gt;</p>
+<p class="p1"><span class="Apple-converted-space">    </span>&lt;link rel="stylesheet" href="https://jsdelivr.net"&gt;</p>
+<p class="p1"><span class="Apple-converted-space">    </span>&lt;script src="https://jsdelivr.net"&gt;&lt;/script&gt;</p>
+<p class="p1"><span class="Apple-converted-space">    </span>&lt;style&gt;</p>
+<p class="p1"><span class="Apple-converted-space">        </span>body { font-family: -apple-system, BlinkMacSystemFont, "Roboto", sans-serif; padding: 12px; background: #ebedf0; margin: 0; }</p>
+<p class="p1"><span class="Apple-converted-space">        </span>.container { background: #fff; padding: 16px; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.03); max-width: 400px; margin: 0 auto; }</p>
+<p class="p1"><span class="Apple-converted-space">        </span>h3, h4 { margin-top: 0; color: #2c3e50; font-size: 16px; }</p>
+<p class="p1"><span class="Apple-converted-space">        </span>#calendar { width: 100%; display: flex; justify-content: center; }</p>
+<p class="p1"><span class="Apple-converted-space">        </span>.air-datepicker { width: 100%; border: none; --ad-accent-color: #4986cc; }</p>
+<p class="p1"><span class="Apple-converted-space">        </span>.time-slots { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-top: 12px; max-height: 140px; overflow-y: auto; }</p>
+<p class="p1"><span class="Apple-converted-space">        </span>.time-btn { padding: 10px; background: #f0f2f5; border: none; border-radius: 8px; text-align: center; cursor: pointer; font-size: 14px; font-weight: 500; }</p>
+<p class="p1"><span class="Apple-converted-space">        </span>.time-btn.active { background: #4986cc; color: white; }</p>
+<p class="p1"><span class="Apple-converted-space">        </span>.submit-btn { width: 100%; padding: 14px; background: #4986cc; color: white; border: none; border-radius: 8px; margin-top: 20px; font-weight: bold; font-size: 16px; cursor: pointer; }</p>
+<p class="p1"><span class="Apple-converted-space">        </span>.submit-btn:disabled { background: #a5c3e8; cursor: not-allowed; }</p>
+<p class="p1"><span class="Apple-converted-space">        </span>.loader { text-align: center; color: #828282; padding: 20px 0; }</p>
+<p class="p1"><span class="Apple-converted-space">    </span>&lt;/style&gt;</p>
+<p class="p1">&lt;/head&gt;</p>
+<p class="p1">&lt;body&gt;</p>
+<p class="p2"><br></p>
+<p class="p1">&lt;div class="container"&gt;</p>
+<p class="p1"><span class="Apple-converted-space">    </span>&lt;h3&gt;Выберите дату записи&lt;/h3&gt;</p>
+<p class="p1"><span class="Apple-converted-space">    </span>&lt;div id="calendar"&gt;&lt;/div&gt;</p>
+<p class="p2"><span class="Apple-converted-space">    </span></p>
+<p class="p1"><span class="Apple-converted-space">    </span>&lt;h4&gt;Доступное время:&lt;/h4&gt;</p>
+<p class="p1"><span class="Apple-converted-space">    </span>&lt;div id="slots" class="time-slots"&gt;Загрузка...&lt;/div&gt;</p>
+<p class="p2"><span class="Apple-converted-space">    </span></p>
+<p class="p1"><span class="Apple-converted-space">    </span>&lt;button class="submit-btn" id="bookBtn" disabled&gt;Подтвердить бронь&lt;/button&gt;</p>
+<p class="p1">&lt;/div&gt;</p>
+<p class="p2"><br></p>
+<p class="p1">&lt;script&gt;</p>
+<p class="p1"><span class="Apple-converted-space">    </span>vkBridge.send('VKWebAppInit');</p>
+<p class="p2"><br></p>
+<p class="p1"><span class="Apple-converted-space">    </span>// ⚠️ УКАЖИТЕ АДРЕС ВАШЕГО СЕРВЕРА n8n</p>
+<p class="p1"><span class="Apple-converted-space">    </span>const N8N_URL = 'https://your-n8n-domain.com';</p>
+<p class="p2"><br></p>
+<p class="p1"><span class="Apple-converted-space">    </span>let selectedDate = null;</p>
+<p class="p1"><span class="Apple-converted-space">    </span>let selectedTime = null;</p>
+<p class="p1"><span class="Apple-converted-space">    </span>let availableSlotsData = {};<span class="Apple-converted-space"> </span></p>
+<p class="p2"><br></p>
+<p class="p1"><span class="Apple-converted-space">    </span>// Извлекаем переданные ботом параметры из hash (например, #staff_id=123&amp;service_id=456)</p>
+<p class="p1"><span class="Apple-converted-space">    </span>const hashParams = new URLSearchParams(window.location.hash.substring(1));</p>
+<p class="p1"><span class="Apple-converted-space">    </span>const staffId = hashParams.get('staff_id');</p>
+<p class="p1"><span class="Apple-converted-space">    </span>const serviceId = hashParams.get('service_id');</p>
+<p class="p2"><br></p>
+<p class="p1"><span class="Apple-converted-space">    </span>const slotsContainer = document.getElementById('slots');</p>
+<p class="p2"><br></p>
+<p class="p1"><span class="Apple-converted-space">    </span>// 1. Запрашиваем у n8n расписание под конкретного мастера и услугу</p>
+<p class="p1"><span class="Apple-converted-space">    </span>fetch(`${N8N_URL}/get-slots?staff_id=${staffId}&amp;service_id=${serviceId}`)</p>
+<p class="p1"><span class="Apple-converted-space">        </span>.then(res =&gt; res.json())</p>
+<p class="p1"><span class="Apple-converted-space">        </span>.then(data =&gt; {</p>
+<p class="p1"><span class="Apple-converted-space">            </span>availableSlotsData = data; // Ожидаем формат: {"2026-10-25": ["10:00", "12:30"], "2026-10-26": ["09:00"]}</p>
+<p class="p1"><span class="Apple-converted-space">            </span>slotsContainer.innerHTML = 'Выберите день на календаре выше';</p>
+<p class="p1"><span class="Apple-converted-space">            </span>initCalendar();</p>
+<p class="p1"><span class="Apple-converted-space">        </span>})</p>
+<p class="p1"><span class="Apple-converted-space">        </span>.catch(() =&gt; {</p>
+<p class="p1"><span class="Apple-converted-space">            </span>slotsContainer.innerHTML = '&lt;div style="color:red"&gt;Ошибка загрузки дат&lt;/div&gt;';</p>
+<p class="p1"><span class="Apple-converted-space">        </span>});</p>
+<p class="p2"><br></p>
+<p class="p1"><span class="Apple-converted-space">    </span>// 2. Инициализация календаря</p>
+<p class="p1"><span class="Apple-converted-space">    </span>function initCalendar() {</p>
+<p class="p1"><span class="Apple-converted-space">        </span>new AirDatepicker('#calendar', {</p>
+<p class="p1"><span class="Apple-converted-space">            </span>inline: true,</p>
+<p class="p1"><span class="Apple-converted-space">            </span>minDate: new Date(),</p>
+<p class="p1"><span class="Apple-converted-space">            </span>onRenderCell({date, cellType}) {</p>
+<p class="p1"><span class="Apple-converted-space">                </span>if (cellType === 'day') {</p>
+<p class="p1"><span class="Apple-converted-space">                    </span>const localDateStr = formatDate(date);</p>
+<p class="p1"><span class="Apple-converted-space">                    </span>// Если даты нет в ответе n8n — блокируем её</p>
+<p class="p1"><span class="Apple-converted-space">                    </span>const isAvailable = availableSlotsData[localDateStr] &amp;&amp; availableSlotsData[localDateStr].length &gt; 0;</p>
+<p class="p1"><span class="Apple-converted-space">                    </span>return { disabled: !isAvailable }</p>
+<p class="p1"><span class="Apple-converted-space">                </span>}</p>
+<p class="p1"><span class="Apple-converted-space">            </span>},</p>
+<p class="p1"><span class="Apple-converted-space">            </span>onSelect({date}) {</p>
+<p class="p1"><span class="Apple-converted-space">                </span>if (!date) return;</p>
+<p class="p1"><span class="Apple-converted-space">                </span>selectedDate = formatDate(date);</p>
+<p class="p1"><span class="Apple-converted-space">                </span>renderTimeSlots(availableSlotsData[selectedDate]);</p>
+<p class="p1"><span class="Apple-converted-space">            </span>}</p>
+<p class="p1"><span class="Apple-converted-space">        </span>});</p>
+<p class="p1"><span class="Apple-converted-space">    </span>}</p>
+<p class="p2"><br></p>
+<p class="p1"><span class="Apple-converted-space">    </span>// 3. Вывод кнопок времени</p>
+<p class="p1"><span class="Apple-converted-space">    </span>function renderTimeSlots(slots) {</p>
+<p class="p1"><span class="Apple-converted-space">        </span>slotsContainer.innerHTML = '';</p>
+<p class="p1"><span class="Apple-converted-space">        </span>if (!slots || slots.length === 0) {</p>
+<p class="p1"><span class="Apple-converted-space">            </span>slotsContainer.innerHTML = 'Нет свободного времени';</p>
+<p class="p1"><span class="Apple-converted-space">            </span>return;</p>
+<p class="p1"><span class="Apple-converted-space">        </span>}</p>
+<p class="p1"><span class="Apple-converted-space">        </span>slots.forEach(time =&gt; {</p>
+<p class="p1"><span class="Apple-converted-space">            </span>const btn = document.createElement('button');</p>
+<p class="p1"><span class="Apple-converted-space">            </span>btn.className = 'time-btn';</p>
+<p class="p1"><span class="Apple-converted-space">            </span>btn.innerText = time;</p>
+<p class="p1"><span class="Apple-converted-space">            </span>btn.onclick = () =&gt; {</p>
+<p class="p1"><span class="Apple-converted-space">                </span>document.querySelectorAll('.time-btn').forEach(b =&gt; b.classList.remove('active'));</p>
+<p class="p1"><span class="Apple-converted-space">                </span>btn.classList.add('active');</p>
+<p class="p1"><span class="Apple-converted-space">                </span>selectedTime = time;</p>
+<p class="p1"><span class="Apple-converted-space">                </span>document.getElementById('bookBtn').disabled = false;</p>
+<p class="p1"><span class="Apple-converted-space">            </span>};</p>
+<p class="p1"><span class="Apple-converted-space">            </span>slotsContainer.appendChild(btn);</p>
+<p class="p1"><span class="Apple-converted-space">        </span>});</p>
+<p class="p1"><span class="Apple-converted-space">    </span>}</p>
+<p class="p2"><br></p>
+<p class="p1"><span class="Apple-converted-space">    </span>function formatDate(date) {</p>
+<p class="p1"><span class="Apple-converted-space">        </span>const offset = date.getTimezoneOffset();</p>
+<p class="p1"><span class="Apple-converted-space">        </span>const localDate = new Date(date.getTime() - (offset * 60 * 1000));</p>
+<p class="p1"><span class="Apple-converted-space">        </span>return localDate.toISOString().split('T')[0];</p>
+<p class="p1"><span class="Apple-converted-space">    </span>}</p>
+<p class="p2"><br></p>
+<p class="p1"><span class="Apple-converted-space">    </span>// 4. Отправка итоговой записи в n8n</p>
+<p class="p1"><span class="Apple-converted-space">    </span>document.getElementById('bookBtn').onclick = async () =&gt; {</p>
+<p class="p1"><span class="Apple-converted-space">        </span>document.getElementById('bookBtn').disabled = true;</p>
+<p class="p1"><span class="Apple-converted-space">        </span>document.getElementById('bookBtn').innerText = 'Запись...';</p>
+<p class="p2"><span class="Apple-converted-space">        </span></p>
+<p class="p1"><span class="Apple-converted-space">        </span>try {</p>
+<p class="p1"><span class="Apple-converted-space">            </span>// Запрашиваем инфо о юзере у ВК (Имя, Фамилия, ID)</p>
+<p class="p1"><span class="Apple-converted-space">            </span>const userData = await vkBridge.send('VKWebAppGetUserInfo').catch(() =&gt; ({id: 0, first_name: 'Клиент', last_name: ''}));</p>
+<p class="p2"><span class="Apple-converted-space">            </span></p>
+<p class="p1"><span class="Apple-converted-space">            </span>const response = await fetch(`${N8N_URL}/create-booking`, {</p>
+<p class="p1"><span class="Apple-converted-space">                </span>method: 'POST',</p>
+<p class="p1"><span class="Apple-converted-space">                </span>headers: { 'Content-Type': 'application/json' },</p>
+<p class="p1"><span class="Apple-converted-space">                </span>body: JSON.stringify({</p>
+<p class="p1"><span class="Apple-converted-space">                    </span>vk_id: userData.id,</p>
+<p class="p1"><span class="Apple-converted-space">                    </span>first_name: userData.first_name,</p>
+<p class="p1"><span class="Apple-converted-space">                    </span>last_name: userData.last_name,</p>
+<p class="p1"><span class="Apple-converted-space">                    </span>staff_id: staffId,</p>
+<p class="p1"><span class="Apple-converted-space">                    </span>service_id: serviceId,</p>
+<p class="p1"><span class="Apple-converted-space">                    </span>date: selectedDate,</p>
+<p class="p1"><span class="Apple-converted-space">                    </span>time: selectedTime</p>
+<p class="p1"><span class="Apple-converted-space">                </span>})</p>
+<p class="p1"><span class="Apple-converted-space">            </span>});</p>
+<p class="p2"><br></p>
+<p class="p1"><span class="Apple-converted-space">            </span>if (response.ok) {</p>
+<p class="p1"><span class="Apple-converted-space">                </span>// Закрываем окно мини-апп, возвращаем человека в диалог</p>
+<p class="p1"><span class="Apple-converted-space">                </span>vkBridge.send('VKWebAppClose', { status: 'success' });</p>
+<p class="p1"><span class="Apple-converted-space">            </span>} else {</p>
+<p class="p1"><span class="Apple-converted-space">                </span>alert('Ошибка создания записи.');</p>
+<p class="p1"><span class="Apple-converted-space">                </span>document.getElementById('bookBtn').disabled = false;</p>
+<p class="p1"><span class="Apple-converted-space">            </span>}</p>
+<p class="p1"><span class="Apple-converted-space">        </span>} catch (error) {</p>
+<p class="p1"><span class="Apple-converted-space">            </span>document.getElementById('bookBtn').disabled = false;</p>
+<p class="p1"><span class="Apple-converted-space">        </span>}</p>
+<p class="p1"><span class="Apple-converted-space">    </span>};</p>
+<p class="p1">&lt;/script&gt;</p>
+<p class="p1">&lt;/body&gt;</p>
+<p class="p1">&lt;/html&gt;</p>
+</body>
+</html>
