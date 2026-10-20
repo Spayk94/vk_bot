@@ -3,54 +3,37 @@
 <html lang="ru">
 <head>
   <meta charset="UTF-8">
-  <meta
-    name="viewport"
-    content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no"
-  >
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
   <meta name="theme-color" content="#ffffff">
   <title>Запись на услугу</title>
 
-  <!-- VK Bridge -->
-  <script src="https://unpkg.com/@vkontakte/vk-bridge/dist/browser.min.js"></script>
-
-  <!-- Air Datepicker -->
   <link
     rel="stylesheet"
-    href="https://cdn.jsdelivr.net/npm/air-datepicker@3.5.3/air-datepicker.css"
+    href="https://unpkg.com/air-datepicker@3.5.3/air-datepicker.css"
   >
-  <script src="https://cdn.jsdelivr.net/npm/air-datepicker@3.5.3/air-datepicker.js"></script>
 
   <style>
-    * {
-      box-sizing: border-box;
-    }
+    * { box-sizing: border-box; }
 
     body {
       margin: 0;
       padding: 20px 16px 32px;
-      background: var(--vkui--color_background, #ffffff);
-      color: var(--vkui--color_text_primary, #222222);
+      background: var(--vkui--color_background, #fff);
+      color: var(--vkui--color_text_primary, #222);
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
     }
 
-    .container {
-      width: 100%;
-      max-width: 480px;
-      margin: 0 auto;
-    }
+    .container { max-width: 480px; margin: 0 auto; }
 
-    h1 {
-      margin: 0 0 8px;
-      font-size: 24px;
-      line-height: 1.3;
-    }
+    h1 { margin: 0 0 8px; font-size: 24px; }
 
-    .subtitle {
-      margin: 0 0 24px;
-      color: var(--vkui--color_text_secondary, #777777);
+    .subtitle, .status {
+      color: var(--vkui--color_text_secondary, #777);
       font-size: 14px;
       line-height: 1.5;
     }
+
+    .subtitle { margin: 0 0 24px; }
 
     .section-title {
       margin: 22px 0 12px;
@@ -58,9 +41,7 @@
       font-weight: 600;
     }
 
-    #calendar {
-      min-height: 290px;
-    }
+    #calendar { min-height: 290px; }
 
     .times {
       display: grid;
@@ -72,8 +53,8 @@
       min-height: 44px;
       border: 1px solid #d7d7d7;
       border-radius: 10px;
-      background: #ffffff;
-      color: #222222;
+      background: #fff;
+      color: #222;
       font-size: 15px;
       cursor: pointer;
     }
@@ -81,52 +62,26 @@
     .time-button.selected {
       border-color: #2688eb;
       background: #2688eb;
-      color: #ffffff;
-    }
-
-    .time-button:disabled {
-      opacity: 0.5;
-      cursor: not-allowed;
-    }
-
-    .status {
-      margin: 12px 0;
-      color: var(--vkui--color_text_secondary, #777777);
-      font-size: 14px;
-      line-height: 1.5;
-      white-space: pre-wrap;
-    }
-
-    .error {
-      color: #c62828;
+      color: #fff;
     }
 
     .primary-button {
-      display: block;
       width: 100%;
       min-height: 48px;
       margin-top: 24px;
       border: 0;
       border-radius: 12px;
       background: #2688eb;
-      color: #ffffff;
+      color: #fff;
       font-size: 16px;
       font-weight: 600;
       cursor: pointer;
     }
 
-    .primary-button:disabled {
-      opacity: 0.45;
-      cursor: not-allowed;
-    }
-
-    .hidden {
-      display: none;
-    }
-
-    .air-datepicker {
-      width: 100%;
-    }
+    button:disabled { opacity: .45; cursor: not-allowed; }
+    .error { color: #c62828; }
+    .hidden { display: none; }
+    .air-datepicker { width: 100%; }
   </style>
 </head>
 
@@ -137,7 +92,6 @@
 
     <div class="section-title">1. Выберите дату</div>
     <div id="calendar"></div>
-
     <div id="date-status" class="status">Загружаем доступные даты…</div>
 
     <section id="times-section" class="hidden">
@@ -149,15 +103,16 @@
     <button id="confirm-button" class="primary-button" disabled>
       Подтвердить выбор
     </button>
-
     <div id="general-status" class="status"></div>
   </main>
+
+  <script src="https://unpkg.com/@vkontakte/vk-bridge/dist/browser.min.js"></script>
+  <script src="https://unpkg.com/air-datepicker@3.5.3/air-datepicker.js"></script>
 
   <script>
     (() => {
       "use strict";
 
-      // Существующий production webhook n8n.
       const N8N_URL =
         "https://drickquifouruboz.beget.app/webhook/cdf6e608-7de6-439d-b0aa-49330642a3f1";
 
@@ -182,79 +137,55 @@
       function normalizeDate(value) {
         if (typeof value !== "string") return null;
 
-        // Поддерживаем YYYY-MM-DD и ISO-даты.
         const match = value.match(/^(\d{4})-(\d{2})-(\d{2})/);
         if (!match) return null;
 
-        const year = Number(match[1]);
-        const month = Number(match[2]);
-        const day = Number(match[3]);
-
-        const date = new Date(year, month - 1, day);
+        const [, year, month, day] = match;
+        const check = new Date(Number(year), Number(month) - 1, Number(day));
 
         if (
-          date.getFullYear() !== year ||
-          date.getMonth() !== month - 1 ||
-          date.getDate() !== day
-        ) {
-          return null;
+          check.getFullYear() !== Number(year) ||
+          check.getMonth() !== Number(month) - 1 ||
+          check.getDate() !== Number(day)
+        ) return null;
+
+        return `${year}-${month}-${day}`;
+      }
+
+      function findArray(data, keys) {
+        for (const key of keys) {
+          const value = key.split(".").reduce((obj, part) => obj?.[part], data);
+          if (Array.isArray(value)) return value;
         }
-
-        return `${match[1]}-${match[2]}-${match[3]}`;
+        return [];
       }
 
-      function parseResponseDates(data) {
-        const candidates = [
-          data?.dates,
-          data?.data?.dates,
-          data?.booking_dates,
-          data?.data?.booking_dates
-        ];
+      function parseDates(data) {
+        const list = findArray(data, [
+          "dates", "data.dates", "booking_dates", "data.booking_dates"
+        ]);
 
-        const list = candidates.find(Array.isArray);
-        if (!list) return [];
-
-        return [...new Set(
-          list
-            .map(item => {
-              if (typeof item === "string") return normalizeDate(item);
-
-              if (item && typeof item === "object") {
-                return normalizeDate(
-                  item.date ?? item.booking_date ?? item.value
-                );
-              }
-
-              return null;
-            })
-            .filter(Boolean)
-        )].sort();
+        return [...new Set(list.map(item => {
+          if (typeof item === "string") return normalizeDate(item);
+          if (item && typeof item === "object") {
+            return normalizeDate(item.date ?? item.booking_date ?? item.value);
+          }
+          return null;
+        }).filter(Boolean))].sort();
       }
 
-      function parseResponseTimes(data) {
-        const candidates = [
-          data?.times,
-          data?.data?.times,
-          data?.booking_times,
-          data?.data?.booking_times
-        ];
+      function parseTimes(data) {
+        const list = findArray(data, [
+          "times", "data.times", "booking_times", "data.booking_times"
+        ]);
 
-        const list = candidates.find(Array.isArray);
-        if (!list) return [];
-
-        return list
-          .map(item => {
-            if (typeof item === "string") return item;
-
-            if (item && typeof item === "object") {
-              return String(
-                item.time ?? item.datetime ?? item.value ?? ""
-              );
-            }
-
-            return "";
-          })
-          .filter(Boolean);
+        return list.map(item => {
+          if (typeof item === "string") return item;
+          if (item && typeof item === "object") {
+            return String(item.time ?? item.datetime ?? item.value ?? "");
+          }
+          return "";
+        }).filter(Boolean);
       }
 
       async function requestN8n(action, extra = {}) {
@@ -264,11 +195,7 @@
           ...extra
         });
 
-        console.log("[calendar] Отправляем запрос:", {
-          url: N8N_URL,
-          action,
-          ...extra
-        });
+        console.log("[calendar] Отправляем запрос:", action);
 
         const response = await fetch(N8N_URL, {
           method: "POST",
@@ -279,7 +206,7 @@
         });
 
         if (!response.ok) {
-          throw new Error(`n8n вернул HTTP ${response.status}`);
+          throw new Error(`Ошибка HTTP ${response.status}`);
         }
 
         const text = await response.text();
@@ -288,17 +215,13 @@
         try {
           result = JSON.parse(text);
         } catch {
-          throw new Error(
-            "Ответ n8n не является JSON. Проверь Respond to Webhook."
-          );
+          throw new Error("Ответ n8n не является JSON.");
         }
 
         console.log("[calendar] Ответ n8n:", result);
 
         if (result?.success === false || result?.error) {
-          throw new Error(
-            result.error || result.message || "n8n вернул ошибку"
-          );
+          throw new Error(result.error || result.message || "Ошибка n8n");
         }
 
         return result;
@@ -316,71 +239,57 @@
         updateConfirmButton();
       }
 
-      function renderTimes(times) {
-        timesContainer.replaceChildren();
-
-        if (!times.length) {
-          setStatus(timeStatus, "На эту дату свободного времени нет.");
-          return;
-        }
-
-        setStatus(timeStatus, "Выберите свободное время.");
-
-        times.forEach(time => {
-          const button = document.createElement("button");
-          button.type = "button";
-          button.className = "time-button";
-          button.textContent = time;
-
-          button.addEventListener("click", () => {
-            selectedTime = time;
-
-            timesContainer.querySelectorAll(".time-button").forEach(item => {
-              item.classList.toggle("selected", item === button);
-            });
-
-            updateConfirmButton();
-          });
-
-          timesContainer.appendChild(button);
-        });
-      }
-
       async function loadTimes(date) {
         const currentRequest = ++requestCounter;
 
         selectedDate = date;
         clearTimes();
-
         timesSection.classList.remove("hidden");
         setStatus(timeStatus, "Загружаем свободное время…");
 
         try {
           const result = await requestN8n("times", { date });
-
           if (currentRequest !== requestCounter) return;
 
-          const times = parseResponseTimes(result);
-          renderTimes(times);
+          const times = parseTimes(result);
+
+          if (!times.length) {
+            setStatus(timeStatus, "Свободного времени нет.");
+            return;
+          }
+
+          setStatus(timeStatus, "Выберите время.");
+
+          times.forEach(time => {
+            const button = document.createElement("button");
+            button.type = "button";
+            button.className = "time-button";
+            button.textContent = time;
+
+            button.addEventListener("click", () => {
+              selectedTime = time;
+
+              timesContainer.querySelectorAll(".time-button").forEach(item => {
+                item.classList.toggle("selected", item === button);
+              });
+
+              updateConfirmButton();
+            });
+
+            timesContainer.appendChild(button);
+          });
         } catch (error) {
           if (currentRequest !== requestCounter) return;
-
-          setStatus(
-            timeStatus,
-            `Не удалось загрузить время: ${error.message}`,
-            true
-          );
+          setStatus(timeStatus, `Ошибка загрузки времени: ${error.message}`, true);
         }
       }
 
       function renderCalendar(dates) {
-        if (typeof AirDatepicker === "undefined") {
-          throw new Error("Не загрузился календарь Air Datepicker.");
+        if (typeof window.AirDatepicker !== "function") {
+          throw new Error("Библиотека календаря не загрузилась.");
         }
 
-        if (datepicker) {
-          datepicker.destroy();
-        }
+        if (datepicker) datepicker.destroy();
 
         const enabledDates = new Set(dates);
 
@@ -389,6 +298,7 @@
           autoClose: true,
           dateFormat: "yyyy-MM-dd",
           minDate: new Date(),
+
           onRenderCell({ date, cellType }) {
             if (cellType !== "day") return {};
 
@@ -398,61 +308,48 @@
               String(date.getDate()).padStart(2, "0")
             ].join("-");
 
-            if (!enabledDates.has(key)) {
-              return {
-                disabled: true,
-                classes: "disabled-date"
-              };
-            }
-
-            return {};
+            return enabledDates.has(key)
+              ? {}
+              : { disabled: true, classes: "disabled-date" };
           },
+
           onSelect({ date, formattedDate }) {
             if (!date) return;
 
-            const normalized = normalizeDate(
-              Array.isArray(formattedDate)
-                ? formattedDate[0]
-                : formattedDate
+            const value = normalizeDate(
+              Array.isArray(formattedDate) ? formattedDate[0] : formattedDate
             );
 
-            if (!normalized || !enabledDates.has(normalized)) return;
+            if (!value || !enabledDates.has(value)) return;
 
-            setStatus(dateStatus, `Выбрана дата: ${normalized}`);
-            loadTimes(normalized);
+            setStatus(dateStatus, `Выбрана дата: ${value}`);
+            loadTimes(value);
           }
         });
       }
 
       async function loadDates() {
-        setStatus(dateStatus, "Загружаем доступные даты…");
+        setStatus(dateStatus, "Связываемся с сервером n8n…");
 
         try {
-          // staff_id и service_ids календарь не передаёт.
-          // n8n получает их самостоятельно из своей таблицы.
+          // staff_id и service_ids берутся внутри n8n из таблицы.
           const result = await requestN8n("dates");
-
-          availableDates = parseResponseDates(result);
+          availableDates = parseDates(result);
 
           if (!availableDates.length) {
             setStatus(
               dateStatus,
-              "n8n ответил, но список дат пустой. Проверь формат ответа и данные YCLIENTS.",
+              "Ответ получен, но список дат пуст. Проверь формат ответа n8n.",
               true
             );
             return;
           }
 
           renderCalendar(availableDates);
-          setStatus(dateStatus, "Выберите одну из доступных дат.");
+          setStatus(dateStatus, "Выберите доступную дату.");
         } catch (error) {
           console.error("[calendar] Ошибка загрузки дат:", error);
-
-          setStatus(
-            dateStatus,
-            `Не удалось загрузить даты: ${error.message}`,
-            true
-          );
+          setStatus(dateStatus, `Не удалось загрузить даты: ${error.message}`, true);
         }
       }
 
@@ -470,14 +367,10 @@
 
           setStatus(
             generalStatus,
-            result.message || "Выбор отправлен. Следуйте дальнейшим инструкциям."
+            result.message || "Выбор отправлен."
           );
         } catch (error) {
-          setStatus(
-            generalStatus,
-            `Не удалось отправить выбор: ${error.message}`,
-            true
-          );
+          setStatus(generalStatus, `Ошибка: ${error.message}`, true);
         } finally {
           updateConfirmButton();
         }
@@ -489,13 +382,17 @@
             await window.vkBridge.send("VKWebAppInit");
           }
         } catch (error) {
-          console.warn("[calendar] VK Bridge не инициализирован:", error);
+          console.warn("[calendar] VK Bridge:", error);
         }
 
         await loadDates();
       }
 
-      document.addEventListener("DOMContentLoaded", startApp);
+      if (document.readyState === "loading") {
+        document.addEventListener("DOMContentLoaded", startApp);
+      } else {
+        startApp();
+      }
     })();
   </script>
 </body>
