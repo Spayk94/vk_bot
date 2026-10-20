@@ -564,46 +564,41 @@
 
           const unwrapped = unwrapResponse(result);
 
-          // После успешной записи берём group_id из ответа n8n
-          // и пробуем открыть диалог сообщества в VK.
+          // После успешной записи берём group_id из ответа n8n.
+          // Автоматический переход не используем: показываем кликабельную ссылку.
           if (unwrapped?.success === true) {
             const groupId = findGroupId(result);
+            const successMessage = unwrapped?.message || "Запись успешно подтверждена.";
 
-            setStatus(
-              generalStatus,
-              unwrapped?.message || "Запись успешно подтверждена."
-            );
+            generalStatus.replaceChildren();
+            generalStatus.classList.remove("error");
+            generalStatus.appendChild(document.createTextNode(successMessage));
 
             if (!groupId) {
-              setStatus(
-                generalStatus,
-                "Запись подтверждена, но n8n не вернул group_id. Добавьте group_id в ответ Respond to Webhook.",
-                true
-              );
+              generalStatus.appendChild(document.createElement("br"));
+              generalStatus.appendChild(document.createTextNode(
+                "Но n8n не вернул group_id, поэтому ссылку на чат сформировать не удалось."
+              ));
+              generalStatus.classList.add("error");
               return;
             }
 
             const chatUrl = `https://vk.ru/im?sel=-${groupId}`;
+            console.log("[calendar] Ссылка на чат:", chatUrl);
 
-            console.log("[calendar] Переход в чат:", chatUrl);
-
-            if (window.vkBridge?.send) {
-              try {
-                await window.vkBridge.send("VKWebAppOpenURL", { url: chatUrl });
-              } catch (openError) {
-                console.error("[calendar] Не удалось открыть чат через VK Bridge:", openError);
-                setStatus(
-                  generalStatus,
-                  `Запись подтверждена. Не удалось автоматически открыть чат. Ссылка: ${chatUrl}`
-                );
-              }
-            } else {
-              setStatus(
-                generalStatus,
-                `Запись подтверждена. Откройте чат по ссылке: ${chatUrl}`
-              );
-            }
-
+            // После успешного подтверждения та же кнопка превращается в ссылку на чат.
+            const chatButton = document.createElement("a");
+            chatButton.id = "confirm-button";
+            chatButton.className = "primary-button";
+            chatButton.href = chatUrl;
+            chatButton.textContent = "Вернуться в чат для продолжения";
+            chatButton.target = "_blank";
+            chatButton.rel = "noopener noreferrer";
+            chatButton.style.display = "flex";
+            chatButton.style.alignItems = "center";
+            chatButton.style.justifyContent = "center";
+            chatButton.style.textDecoration = "none";
+            confirmButton.replaceWith(chatButton);
             return;
           }
 
