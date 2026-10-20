@@ -545,9 +545,28 @@
 
           const unwrapped = unwrapResponse(result);
 
+          // Закрываем мини-приложение только после успешного ответа n8n.
+          if (unwrapped?.success === true) {
+            setStatus(
+              generalStatus,
+              unwrapped?.message || "Выбор подтверждён. Возвращаемся в чат…"
+            );
+
+            if (window.vkBridge?.send) {
+              await window.vkBridge.send("VKWebAppClose", {});
+            } else {
+              throw new Error(
+                "VK Bridge недоступен: не удалось закрыть мини-приложение."
+              );
+            }
+
+            return;
+          }
+
           setStatus(
             generalStatus,
-            unwrapped?.message || "Выбор отправлен."
+            unwrapped?.message || "Ответ получен, но подтверждение не отмечено как успешное.",
+            true
           );
         } catch (error) {
           console.error("[calendar] Ошибка подтверждения:", error);
