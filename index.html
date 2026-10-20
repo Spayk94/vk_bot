@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="ru">
 <head>
@@ -214,7 +215,7 @@
         for (const value of candidates) {
           if (value !== undefined && value !== null && String(value).trim() !== "") {
             const digits = String(value).trim().replace(/^-/, "");
-            if (/^\\d+$/.test(digits)) return digits;
+            if (/^\d+$/.test(digits)) return digits;
           }
         }
 
