@@ -119,18 +119,32 @@
       let datepicker = null;
       let requestCounter = 0;
 
-      // Получаем VK user_id из параметров запуска мини-приложения.
+      // Параметры запуска VK могут находиться в query string или hash.
       const launchParams = new URLSearchParams(window.location.search);
-      const userId = launchParams.get("vk_user_id");
-
-      // Для некоторых способов запуска VK может передать параметры в hash.
       const hashParams = new URLSearchParams(
         window.location.hash.replace(/^#/, "").replace(/^\?/, "")
       );
 
-      const resolvedUserId = userId || hashParams.get("vk_user_id");
+      function getLaunchParam(...names) {
+        for (const name of names) {
+          const value =
+            launchParams.get(name) ||
+            hashParams.get(name);
+
+          if (value) return value;
+        }
+
+        return null;
+      }
+
+      const resolvedUserId = getLaunchParam("vk_user_id", "user_id");
+      const resolvedGroupId = getLaunchParam(
+        "vk_group_id",
+        "group_id"
+      );
 
       console.log("[calendar] VK user_id:", resolvedUserId);
+      console.log("[calendar] VK group_id:", resolvedGroupId);
 
       function setStatus(element, message, isError = false) {
         element.textContent = message || "";
@@ -224,16 +238,24 @@
           );
         }
 
+        if (!resolvedGroupId) {
+          throw new Error(
+            "Не удалось определить group_id. Передайте ID сообщества в параметрах запуска приложения."
+          );
+        }
+
         const body = new URLSearchParams({
           source: "vk_calendar",
           action,
           user_id: String(resolvedUserId),
+          group_id: String(resolvedGroupId),
           ...extra
         });
 
         console.log("[calendar] Отправляем запрос:", {
           action,
           user_id: resolvedUserId,
+          group_id: resolvedGroupId,
           ...extra
         });
 
@@ -349,152 +371,4 @@
       }
 
       function renderCalendar(dates) {
-        if (typeof window.AirDatepicker !== "function") {
-          throw new Error(
-            "Библиотека календаря не загрузилась. Обновите страницу."
-          );
-        }
-
-        if (datepicker) datepicker.destroy();
-
-        const enabledDates = new Set(dates);
-
-        datepicker = new window.AirDatepicker("#calendar", {
-          inline: true,
-          autoClose: true,
-          dateFormat: "yyyy-MM-dd",
-          minDate: new Date(),
-
-          onRenderCell({ date, cellType }) {
-            if (cellType !== "day") return {};
-
-            const key = [
-              date.getFullYear(),
-              String(date.getMonth() + 1).padStart(2, "0"),
-              String(date.getDate()).padStart(2, "0")
-            ].join("-");
-
-            return enabledDates.has(key)
-              ? {}
-              : { disabled: true, classes: "disabled-date" };
-          },
-
-          onSelect({ date, formattedDate }) {
-            if (!date) return;
-
-            const value = normalizeDate(
-              Array.isArray(formattedDate)
-                ? formattedDate[0]
-                : formattedDate
-            );
-
-            if (!value || !enabledDates.has(value)) return;
-
-            selectedDate = value;
-            selectedTime = null;
-
-            setStatus(dateStatus, `Выбрана дата: ${value}`);
-            setStatus(generalStatus, "");
-
-            updateConfirmButton();
-            loadTimes(value);
-          }
-        });
-      }
-
-      async function loadDates() {
-        setStatus(dateStatus, "Связываемся с сервером n8n…");
-        confirmButton.disabled = true;
-
-        try {
-          // staff_id и service_ids по-прежнему получаются внутри n8n.
-          const result = await requestN8n("dates");
-
-          availableDates = parseDates(result);
-
-          console.log("[calendar] Доступные даты:", availableDates);
-
-          if (!availableDates.length) {
-            setStatus(
-              dateStatus,
-              "n8n ответил, но даты не найдены. Проверьте формат ответа.",
-              true
-            );
-            return;
-          }
-
-          renderCalendar(availableDates);
-          setStatus(dateStatus, "Выберите доступную дату.");
-        } catch (error) {
-          console.error("[calendar] Ошибка загрузки дат:", error);
-          setStatus(
-            dateStatus,
-            `Не удалось загрузить даты: ${error.message}`,
-            true
-          );
-        }
-      }
-
-      confirmButton.addEventListener("click", async () => {
-        if (!selectedDate || !selectedTime) return;
-
-        confirmButton.disabled = true;
-        setStatus(generalStatus, "Отправляем ваш выбор…");
-
-        try {
-          const result = await requestN8n("select", {
-            date: selectedDate,
-            time: selectedTime
-          });
-
-          setStatus(
-            generalStatus,
-            result.message || "Выбор отправлен."
-          );
-        } catch (error) {
-          console.error("[calendar] Ошибка подтверждения:", error);
-          setStatus(
-            generalStatus,
-            `Ошибка: ${error.message}`,
-            true
-          );
-        } finally {
-          updateConfirmButton();
-        }
-      });
-
-      async function startApp() {
-        console.log("[calendar] Запуск приложения");
-        setStatus(dateStatus, "Запускаем календарь…");
-
-        if (window.vkBridge?.send) {
-          window.vkBridge.send("VKWebAppInit").catch(error => {
-            console.warn("[calendar] Ошибка VK Bridge:", error);
-          });
-        }
-
-        console.log("[calendar] Вызываем loadDates");
-        await loadDates();
-      }
-
-      function handleStartupError(error) {
-        console.error("[calendar] Ошибка запуска приложения:", error);
-        setStatus(
-          dateStatus,
-          `Ошибка запуска: ${error?.message || "неизвестная ошибка"}`,
-          true
-        );
-      }
-
-      if (document.readyState === "loading") {
-        document.addEventListener("DOMContentLoaded", () => {
-          startApp().catch(handleStartupError);
-        }, { once: true });
-      } else {
-        startApp().catch(handleStartupError);
-      }
-    })();
-  </script>
-</body>
-</html>
-```
+        if (typeof window.AirDatepicker !== "function")
