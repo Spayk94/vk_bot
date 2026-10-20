@@ -138,6 +138,7 @@
 
       let resolvedUserId = getLaunchParam("vk_user_id", "user_id");
       let resolvedGroupId = getLaunchParam("vk_group_id", "group_id");
+      let resolvedChatId = getLaunchParam("vk_chat_id", "chat_id");
 
       async function resolveLaunchParams() {
         if (!window.vkBridge?.send) {
@@ -152,10 +153,12 @@
 
           resolvedUserId = params.vk_user_id || resolvedUserId;
           resolvedGroupId = params.vk_group_id || resolvedGroupId;
+          resolvedChatId = params.vk_chat_id || resolvedChatId;
 
           console.log("[calendar] Launch params:", params);
           console.log("[calendar] user_id:", resolvedUserId);
           console.log("[calendar] group_id:", resolvedGroupId);
+          console.log("[calendar] chat_id:", resolvedChatId);
         } catch (error) {
           console.error("[calendar] Ошибка параметров запуска:", error);
         }
@@ -594,6 +597,12 @@
 
         await resolveLaunchParams();
         await loadDates();
+
+        // Временная диагностика: показываем, передал ли VK ID чата при запуске.
+        setStatus(
+          generalStatus,
+          `Проверка запуска: vk_chat_id = ${resolvedChatId || "не передан"}`
+        );
       }
 
       function handleStartupError(error) {
