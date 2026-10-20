@@ -247,26 +247,38 @@
       }
 
       function parseTimes(response) {
+        // Поддерживаем ответ n8n в виде массива из одного объекта:
+        // [{ success: true, data: [{ time: "10:00", datetime: "..." }], meta: [] }]
+        // а также обычный объект с такой же структурой.
         const result = unwrapResponse(response);
 
-        const list = findArray(result, [
-          "data.times",
-          "times",
-          "data.booking_times",
-          "booking_times"
-        ]);
+        if (!result || typeof result !== "object") {
+          return [];
+        }
 
-        return list.map(item => {
-          if (typeof item === "string") return item;
+        // В ответе YCLIENTS список слотов находится непосредственно в data.
+        const list = Array.isArray(result.data)
+          ? result.data
+          : findArray(result, [
+              "data.times",
+              "data.booking_times",
+              "times",
+              "booking_times"
+            ]);
 
-          if (item && typeof item === "object") {
-            return String(
-              item.time ?? item.datetime ?? item.value ?? ""
-            );
-          }
+        return list
+          .map(item => {
+            if (typeof item === "string") {
+              return item;
+            }
 
-          return "";
-        }).filter(Boolean);
+            if (item && typeof item === "object") {
+              return String(item.time ?? item.datetime ?? item.value ?? "");
+            }
+
+            return "";
+          })
+          .filter(Boolean);
       }
 
       async function requestN8n(action, extra = {}) {
