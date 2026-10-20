@@ -71,6 +71,11 @@
     .error { color: #c62828; }
     .hidden { display: none; }
     .air-datepicker { width: 100%; }
+
+    .air-datepicker-cell.disabled-date {
+      color: #ccc !important;
+      cursor: default !important;
+    }
   </style>
 </head>
 
@@ -118,7 +123,6 @@
       let datepicker = null;
       let requestCounter = 0;
 
-      // Сначала пробуем получить параметры из URL.
       const launchParams = new URLSearchParams(window.location.search);
       const hashParams = new URLSearchParams(
         window.location.hash.replace(/^#/, "").replace(/^\?/, "")
@@ -126,26 +130,18 @@
 
       function getLaunchParam(...names) {
         for (const name of names) {
-          const value =
-            launchParams.get(name) ||
-            hashParams.get(name);
-
+          const value = launchParams.get(name) || hashParams.get(name);
           if (value) return value;
         }
-
         return null;
       }
 
       let resolvedUserId = getLaunchParam("vk_user_id", "user_id");
       let resolvedGroupId = getLaunchParam("vk_group_id", "group_id");
 
-      // Дополнительно получаем параметры запуска через VK Bridge.
       async function resolveLaunchParams() {
         if (!window.vkBridge?.send) {
           console.warn("[calendar] VK Bridge недоступен");
-          console.log("[calendar] URL:", window.location.href);
-          console.log("[calendar] user_id:", resolvedUserId);
-          console.log("[calendar] group_id:", resolvedGroupId);
           return;
         }
 
@@ -154,24 +150,14 @@
             "VKWebAppGetLaunchParams"
           );
 
-          resolvedUserId =
-            params.vk_user_id || resolvedUserId;
-
-          resolvedGroupId =
-            params.vk_group_id || resolvedGroupId;
+          resolvedUserId = params.vk_user_id || resolvedUserId;
+          resolvedGroupId = params.vk_group_id || resolvedGroupId;
 
           console.log("[calendar] Launch params:", params);
-          console.log("[calendar] VK user_id:", resolvedUserId);
-          console.log("[calendar] VK group_id:", resolvedGroupId);
-        } catch (error) {
-          console.error(
-            "[calendar] Ошибка получения параметров VK:",
-            error
-          );
-
-          console.log("[calendar] URL:", window.location.href);
           console.log("[calendar] user_id:", resolvedUserId);
           console.log("[calendar] group_id:", resolvedGroupId);
+        } catch (error) {
+          console.error("[calendar] Ошибка параметров запуска:", error);
         }
       }
 
@@ -183,7 +169,7 @@
       function normalizeDate(value) {
         if (typeof value !== "string") return null;
 
-        const match = value.match(/^(\d{4})-(\d{2})-(\d{2})/);
+        const match = value.match(/^(\d{4})-(\d{2})-(\d{2})$/);
         if (!match) return null;
 
         const [, year, month, day] = match;
@@ -204,9 +190,20 @@
         return `${year}-${month}-${day}`;
       }
 
-      function findArray(data, keys) {
-        for (const key of keys) {
-          const value = key
+      // Поддерживаем ответ в виде массива:
+      // [{ success: true, data: { booking_dates: [...] }, meta: [] }]
+      // и в виде обычного объекта с такой же структурой.
+      function unwrapResponse(result) {
+        if (Array.isArray(result)) {
+          return result[0] ?? null;
+        }
+
+        return result;
+      }
+
+      function findArray(data, paths) {
+        for (const path of paths) {
+          const value = path
             .split(".")
             .reduce((obj, part) => obj?.[part], data);
 
@@ -216,17 +213,27 @@
         return [];
       }
 
-      function parseDates(data) {
-        const list = findArray(data, [
-          "dates",
-          "data.dates",
+      function parseDates(response) {
+        const result = unwrapResponse(response);
+
+        if (!result || typeof result !== "object") {
+          return [];
+        }
+
+        const list = findArray(result, [
+          "data.booking_dates",
           "booking_dates",
-          "data.booking_dates"
+          "data.working_dates",
+          "working_dates",
+          "data.dates",
+          "dates"
         ]);
 
         return [...new Set(
           list.map(item => {
-            if (typeof item === "string") return normalizeDate(item);
+            if (typeof item === "string") {
+              return normalizeDate(item);
+            }
 
             if (item && typeof item === "object") {
               return normalizeDate(
@@ -239,12 +246,14 @@
         )].sort();
       }
 
-      function parseTimes(data) {
-        const list = findArray(data, [
-          "times",
+      function parseTimes(response) {
+        const result = unwrapResponse(response);
+
+        const list = findArray(result, [
           "data.times",
-          "booking_times",
-          "data.booking_times"
+          "times",
+          "data.booking_times",
+          "booking_times"
         ]);
 
         return list.map(item => {
@@ -275,7 +284,7 @@
           ...extra
         });
 
-        console.log("[calendar] Отправляем запрос:", {
+        console.log("[calendar] Запрос:", {
           action,
           user_id: resolvedUserId,
           group_id: resolvedGroupId,
@@ -311,15 +320,17 @@
         } catch {
           console.error("[calendar] Ответ не JSON:", text);
           throw new Error(
-            "Ответ n8n не является JSON. Проверьте узел Respond to Webhook."
+            "Ответ n8n не является JSON. Проверьте Respond to Webhook."
           );
         }
 
         console.log("[calendar] Ответ n8n:", result);
 
-        if (result?.success === false || result?.error) {
+        const unwrapped = unwrapResponse(result);
+
+        if (unwrapped?.success === false || unwrapped?.error) {
           throw new Error(
-            result.error || result.message || "Ошибка n8n"
+            unwrapped.error || unwrapped.message || "Ошибка n8n"
           );
         }
 
@@ -400,7 +411,9 @@
           );
         }
 
-        if (datepicker) datepicker.destroy();
+        if (datepicker) {
+          datepicker.destroy();
+        }
 
         const enabledDates = new Set(dates);
 
@@ -419,9 +432,14 @@
               String(date.getDate()).padStart(2, "0")
             ].join("-");
 
-            return enabledDates.has(key)
-              ? {}
-              : { disabled: true, classes: "disabled-date" };
+            if (!enabledDates.has(key)) {
+              return {
+                disabled: true,
+                classes: "disabled-date"
+              };
+            }
+
+            return {};
           },
 
           onSelect({ date, formattedDate }) {
@@ -448,22 +466,35 @@
       }
 
       async function loadDates() {
-        setStatus(dateStatus, "Связываемся с сервером n8n…");
+        setStatus(dateStatus, "Получаем доступные даты…");
         confirmButton.disabled = true;
 
         try {
-          // staff_id и service_ids получаются внутри n8n из таблиц.
           const result = await requestN8n("dates");
+          const unwrapped = unwrapResponse(result);
+
+          if (!unwrapped || unwrapped.success !== true) {
+            throw new Error(
+              unwrapped?.message || "Сервер не подтвердил получение дат."
+            );
+          }
 
           availableDates = parseDates(result);
 
           console.log("[calendar] Доступные даты:", availableDates);
 
           if (!availableDates.length) {
+            if (datepicker) {
+              datepicker.destroy();
+              datepicker = null;
+            }
+
+            document.getElementById("calendar").replaceChildren();
+
             setStatus(
               dateStatus,
-              "n8n ответил, но даты не найдены. Проверьте формат ответа.",
-              true
+              "Нет доступных дат для записи.",
+              false
             );
             return;
           }
@@ -472,6 +503,14 @@
           setStatus(dateStatus, "Выберите доступную дату.");
         } catch (error) {
           console.error("[calendar] Ошибка загрузки дат:", error);
+
+          if (datepicker) {
+            datepicker.destroy();
+            datepicker = null;
+          }
+
+          document.getElementById("calendar").replaceChildren();
+
           setStatus(
             dateStatus,
             `Не удалось загрузить даты: ${error.message}`,
@@ -492,12 +531,15 @@
             time: selectedTime
           });
 
+          const unwrapped = unwrapResponse(result);
+
           setStatus(
             generalStatus,
-            result.message || "Выбор отправлен."
+            unwrapped?.message || "Выбор отправлен."
           );
         } catch (error) {
           console.error("[calendar] Ошибка подтверждения:", error);
+
           setStatus(
             generalStatus,
             `Ошибка: ${error.message}`,
@@ -509,7 +551,6 @@
       });
 
       async function startApp() {
-        console.log("[calendar] Запуск приложения");
         setStatus(dateStatus, "Запускаем календарь…");
 
         if (window.vkBridge?.send) {
@@ -520,15 +561,13 @@
           }
         }
 
-        // Получаем параметры запуска до отправки запроса в n8n.
         await resolveLaunchParams();
-
-        console.log("[calendar] Вызываем loadDates");
         await loadDates();
       }
 
       function handleStartupError(error) {
         console.error("[calendar] Ошибка запуска приложения:", error);
+
         setStatus(
           dateStatus,
           `Ошибка запуска: ${error?.message || "неизвестная ошибка"}`,
