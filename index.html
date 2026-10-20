@@ -237,12 +237,6 @@
           );
         }
 
-        if (!resolvedGroupId) {
-          throw new Error(
-            "Не удалось определить group_id. Передайте ID сообщества в параметрах запуска приложения."
-          );
-        }
-
         const body = new URLSearchParams({
           source: "vk_calendar",
           action,
