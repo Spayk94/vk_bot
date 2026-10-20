@@ -118,7 +118,7 @@
       let datepicker = null;
       let requestCounter = 0;
 
-      // Параметры запуска VK могут находиться в query string или hash.
+      // Сначала пробуем получить параметры из URL.
       const launchParams = new URLSearchParams(window.location.search);
       const hashParams = new URLSearchParams(
         window.location.hash.replace(/^#/, "").replace(/^\?/, "")
@@ -136,14 +136,44 @@
         return null;
       }
 
-      const resolvedUserId = getLaunchParam("vk_user_id", "user_id");
-      const resolvedGroupId = getLaunchParam(
-        "vk_group_id",
-        "group_id"
-      );
+      let resolvedUserId = getLaunchParam("vk_user_id", "user_id");
+      let resolvedGroupId = getLaunchParam("vk_group_id", "group_id");
 
-      console.log("[calendar] VK user_id:", resolvedUserId);
-      console.log("[calendar] VK group_id:", resolvedGroupId);
+      // Дополнительно получаем параметры запуска через VK Bridge.
+      async function resolveLaunchParams() {
+        if (!window.vkBridge?.send) {
+          console.warn("[calendar] VK Bridge недоступен");
+          console.log("[calendar] URL:", window.location.href);
+          console.log("[calendar] user_id:", resolvedUserId);
+          console.log("[calendar] group_id:", resolvedGroupId);
+          return;
+        }
+
+        try {
+          const params = await window.vkBridge.send(
+            "VKWebAppGetLaunchParams"
+          );
+
+          resolvedUserId =
+            params.vk_user_id || resolvedUserId;
+
+          resolvedGroupId =
+            params.vk_group_id || resolvedGroupId;
+
+          console.log("[calendar] Launch params:", params);
+          console.log("[calendar] VK user_id:", resolvedUserId);
+          console.log("[calendar] VK group_id:", resolvedGroupId);
+        } catch (error) {
+          console.error(
+            "[calendar] Ошибка получения параметров VK:",
+            error
+          );
+
+          console.log("[calendar] URL:", window.location.href);
+          console.log("[calendar] user_id:", resolvedUserId);
+          console.log("[calendar] group_id:", resolvedGroupId);
+        }
+      }
 
       function setStatus(element, message, isError = false) {
         element.textContent = message || "";
@@ -241,7 +271,7 @@
           source: "vk_calendar",
           action,
           user_id: String(resolvedUserId),
-          group_id: String(resolvedGroupId),
+          group_id: resolvedGroupId ? String(resolvedGroupId) : "null",
           ...extra
         });
 
@@ -483,10 +513,15 @@
         setStatus(dateStatus, "Запускаем календарь…");
 
         if (window.vkBridge?.send) {
-          window.vkBridge.send("VKWebAppInit").catch(error => {
-            console.warn("[calendar] Ошибка VK Bridge:", error);
-          });
+          try {
+            await window.vkBridge.send("VKWebAppInit");
+          } catch (error) {
+            console.warn("[calendar] Ошибка VK Bridge Init:", error);
+          }
         }
+
+        // Получаем параметры запуска до отправки запроса в n8n.
+        await resolveLaunchParams();
 
         console.log("[calendar] Вызываем loadDates");
         await loadDates();
