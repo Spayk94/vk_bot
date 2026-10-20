@@ -1,4 +1,4 @@
-
+```html
 <!DOCTYPE html>
 <html lang="ru">
 <head>
@@ -23,9 +23,15 @@
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
     }
 
-    .container { max-width: 480px; margin: 0 auto; }
+    .container {
+      max-width: 480px;
+      margin: 0 auto;
+    }
 
-    h1 { margin: 0 0 8px; font-size: 24px; }
+    h1 {
+      margin: 0 0 8px;
+      font-size: 24px;
+    }
 
     .subtitle, .status {
       color: var(--vkui--color_text_secondary, #777);
@@ -78,7 +84,11 @@
       cursor: pointer;
     }
 
-    button:disabled { opacity: .45; cursor: not-allowed; }
+    button:disabled {
+      opacity: .45;
+      cursor: not-allowed;
+    }
+
     .error { color: #c62828; }
     .hidden { display: none; }
     .air-datepicker { width: 100%; }
@@ -92,7 +102,7 @@
 
     <div class="section-title">1. Выберите дату</div>
     <div id="calendar"></div>
-    <div id="date-status" class="status">Загружаем доступные даты…</div>
+    <div id="date-status" class="status">Запуск приложения…</div>
 
     <section id="times-section" class="hidden">
       <div class="section-title">2. Выберите время</div>
@@ -141,49 +151,77 @@
         if (!match) return null;
 
         const [, year, month, day] = match;
-        const check = new Date(Number(year), Number(month) - 1, Number(day));
+        const check = new Date(
+          Number(year),
+          Number(month) - 1,
+          Number(day)
+        );
 
         if (
           check.getFullYear() !== Number(year) ||
           check.getMonth() !== Number(month) - 1 ||
           check.getDate() !== Number(day)
-        ) return null;
+        ) {
+          return null;
+        }
 
         return `${year}-${month}-${day}`;
       }
 
       function findArray(data, keys) {
         for (const key of keys) {
-          const value = key.split(".").reduce((obj, part) => obj?.[part], data);
+          const value = key
+            .split(".")
+            .reduce((obj, part) => obj?.[part], data);
+
           if (Array.isArray(value)) return value;
         }
+
         return [];
       }
 
       function parseDates(data) {
         const list = findArray(data, [
-          "dates", "data.dates", "booking_dates", "data.booking_dates"
+          "dates",
+          "data.dates",
+          "booking_dates",
+          "data.booking_dates"
         ]);
 
-        return [...new Set(list.map(item => {
-          if (typeof item === "string") return normalizeDate(item);
-          if (item && typeof item === "object") {
-            return normalizeDate(item.date ?? item.booking_date ?? item.value);
-          }
-          return null;
-        }).filter(Boolean))].sort();
+        return [...new Set(
+          list.map(item => {
+            if (typeof item === "string") {
+              return normalizeDate(item);
+            }
+
+            if (item && typeof item === "object") {
+              return normalizeDate(
+                item.date ?? item.booking_date ?? item.value
+              );
+            }
+
+            return null;
+          }).filter(Boolean)
+        )].sort();
       }
 
       function parseTimes(data) {
         const list = findArray(data, [
-          "times", "data.times", "booking_times", "data.booking_times"
+          "times",
+          "data.times",
+          "booking_times",
+          "data.booking_times"
         ]);
 
         return list.map(item => {
           if (typeof item === "string") return item;
+
           if (item && typeof item === "object") {
-            return String(item.time ?? item.datetime ?? item.value ?? "");
+            return String(
+              item.time ?? item.datetime ?? item.value ?? ""
+            );
           }
+
           return "";
         }).filter(Boolean);
       }
@@ -197,13 +235,22 @@
 
         console.log("[calendar] Отправляем запрос:", action);
 
-        const response = await fetch(N8N_URL, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/x-www-form-urlencoded;charset=UTF-8"
-          },
-          body: body.toString()
-        });
+        let response;
+
+        try {
+          response = await fetch(N8N_URL, {
+            method: "POST",
+            headers: {
+              "Content-Type":
+                "application/x-www-form-urlencoded;charset=UTF-8"
+            },
+            body: body.toString()
+          });
+        } catch (error) {
+          throw new Error(
+            "Не удалось связаться с n8n. Проверьте подключение и вебхук."
+          );
+        }
 
         if (!response.ok) {
           throw new Error(`Ошибка HTTP ${response.status}`);
@@ -212,16 +259,25 @@
         const text = await response.text();
 
         let result;
+
         try {
           result = JSON.parse(text);
         } catch {
-          throw new Error("Ответ n8n не является JSON.");
+          console.error("[calendar] Ответ не JSON:", text);
+          throw new Error(
+            "Ответ n8n не является JSON. Проверьте узел Respond to Webhook."
+          );
         }
 
         console.log("[calendar] Ответ n8n:", result);
 
-        if (result?.success === false || result?.error) {
-          throw new Error(result.error || result.message || "Ошибка n8n");
+        if (
+          result?.success === false ||
+          result?.error
+        ) {
+          throw new Error(
+            result.error || result.message || "Ошибка n8n"
+          );
         }
 
         return result;
@@ -246,9 +302,11 @@
         clearTimes();
         timesSection.classList.remove("hidden");
         setStatus(timeStatus, "Загружаем свободное время…");
+        updateConfirmButton();
 
         try {
           const result = await requestN8n("times", { date });
+
           if (currentRequest !== requestCounter) return;
 
           const times = parseTimes(result);
@@ -262,6 +320,7 @@
 
           times.forEach(time => {
             const button = document.createElement("button");
+
             button.type = "button";
             button.className = "time-button";
             button.textContent = time;
@@ -269,9 +328,11 @@
             button.addEventListener("click", () => {
               selectedTime = time;
 
-              timesContainer.querySelectorAll(".time-button").forEach(item => {
-                item.classList.toggle("selected", item === button);
-              });
+              timesContainer
+                .querySelectorAll(".time-button")
+                .forEach(item => {
+                  item.classList.toggle("selected", item === button);
+                });
 
               updateConfirmButton();
             });
@@ -280,20 +341,31 @@
           });
         } catch (error) {
           if (currentRequest !== requestCounter) return;
-          setStatus(timeStatus, `Ошибка загрузки времени: ${error.message}`, true);
+
+          console.error("[calendar] Ошибка загрузки времени:", error);
+
+          setStatus(
+            timeStatus,
+            `Ошибка загрузки времени: ${error.message}`,
+            true
+          );
         }
       }
 
       function renderCalendar(dates) {
         if (typeof window.AirDatepicker !== "function") {
-          throw new Error("Библиотека календаря не загрузилась.");
+          throw new Error(
+            "Библиотека календаря не загрузилась. Обновите страницу."
+          );
         }
 
-        if (datepicker) datepicker.destroy();
+        if (datepicker) {
+          datepicker.destroy();
+        }
 
         const enabledDates = new Set(dates);
 
-        datepicker = new AirDatepicker("#calendar", {
+        datepicker = new window.AirDatepicker("#calendar", {
           inline: true,
           autoClose: true,
           dateFormat: "yyyy-MM-dd",
@@ -310,19 +382,30 @@
 
             return enabledDates.has(key)
               ? {}
-              : { disabled: true, classes: "disabled-date" };
+              : {
+                  disabled: true,
+                  classes: "disabled-date"
+                };
           },
 
           onSelect({ date, formattedDate }) {
             if (!date) return;
 
             const value = normalizeDate(
-              Array.isArray(formattedDate) ? formattedDate[0] : formattedDate
+              Array.isArray(formattedDate)
+                ? formattedDate[0]
+                : formattedDate
             );
 
             if (!value || !enabledDates.has(value)) return;
 
+            selectedDate = value;
+            selectedTime = null;
+
             setStatus(dateStatus, `Выбрана дата: ${value}`);
+            setStatus(generalStatus, "");
+
+            updateConfirmButton();
             loadTimes(value);
           }
         });
@@ -330,16 +413,21 @@
 
       async function loadDates() {
         setStatus(dateStatus, "Связываемся с сервером n8n…");
+        confirmButton.disabled = true;
 
         try {
           // staff_id и service_ids берутся внутри n8n из таблицы.
+          // HTML передаёт только источник и действие.
           const result = await requestN8n("dates");
+
           availableDates = parseDates(result);
+
+          console.log("[calendar] Доступные даты:", availableDates);
 
           if (!availableDates.length) {
             setStatus(
               dateStatus,
-              "Ответ получен, но список дат пуст. Проверь формат ответа n8n.",
+              "n8n ответил, но даты не найдены. Проверьте формат ответа.",
               true
             );
             return;
@@ -349,7 +437,12 @@
           setStatus(dateStatus, "Выберите доступную дату.");
         } catch (error) {
           console.error("[calendar] Ошибка загрузки дат:", error);
-          setStatus(dateStatus, `Не удалось загрузить даты: ${error.message}`, true);
+
+          setStatus(
+            dateStatus,
+            `Не удалось загрузить даты: ${error.message}`,
+            true
+          );
         }
       }
 
@@ -370,30 +463,54 @@
             result.message || "Выбор отправлен."
           );
         } catch (error) {
-          setStatus(generalStatus, `Ошибка: ${error.message}`, true);
+          console.error("[calendar] Ошибка подтверждения:", error);
+
+          setStatus(
+            generalStatus,
+            `Ошибка: ${error.message}`,
+            true
+          );
         } finally {
           updateConfirmButton();
         }
       });
 
       async function startApp() {
-        try {
-          if (window.vkBridge?.send) {
-            await window.vkBridge.send("VKWebAppInit");
-          }
-        } catch (error) {
-          console.warn("[calendar] VK Bridge:", error);
+        console.log("[calendar] Запуск приложения");
+
+        setStatus(dateStatus, "Запускаем календарь…");
+
+        // VK Bridge инициализируется отдельно и не задерживает загрузку дат.
+        if (window.vkBridge?.send) {
+          window.vkBridge.send("VKWebAppInit").catch(error => {
+            console.warn("[calendar] Ошибка VK Bridge:", error);
+          });
         }
+
+        console.log("[calendar] Вызываем loadDates");
 
         await loadDates();
       }
 
+      function handleStartupError(error) {
+        console.error("[calendar] Ошибка запуска приложения:", error);
+
+        setStatus(
+          dateStatus,
+          `Ошибка запуска: ${error?.message || "неизвестная ошибка"}`,
+          true
+        );
+      }
+
       if (document.readyState === "loading") {
-        document.addEventListener("DOMContentLoaded", startApp);
+        document.addEventListener("DOMContentLoaded", () => {
+          startApp().catch(handleStartupError);
+        }, { once: true });
       } else {
-        startApp();
+        startApp().catch(handleStartupError);
       }
     })();
   </script>
 </body>
 </html>
+```
