@@ -1,46 +1,86 @@
+```html
 <!DOCTYPE html>
 <html lang="ru">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Подтверждение номера телефона</title>
-  <!-- Подключаем официальный VK Bridge -->
-  <script src="https://unpkg.com"></script>
+
+  <!-- Официальный VK Bridge -->
+  <script src="https://unpkg.com/@vkontakte/vk-bridge/dist/browser.min.js"></script>
+
   <style>
     body {
-      margin: 0; padding: 24px;
+      margin: 0;
+      padding: 24px;
+      box-sizing: border-box;
       font-family: -apple-system, BlinkMacSystemFont, Roboto, sans-serif;
-      background: #f2f3f5; display: flex; justify-content: center; align-items: center;
-      height: 100vh; text-align: center; color: #222;
+      background: #f2f3f5;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 100vh;
+      text-align: center;
+      color: #222;
     }
+
     .box {
-      background: #fff; padding: 24px; border-radius: 16px;
-      box-shadow: 0 4px 20px rgba(0,0,0,0.05); max-width: 360px; width: 100%;
+      background: #fff;
+      padding: 24px;
+      border-radius: 16px;
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.05);
+      max-width: 360px;
+      width: 100%;
+      box-sizing: border-box;
     }
+
     .loader {
-      border: 3px solid #f3f3f3; border-top: 3px solid #2688eb;
-      border-radius: 50%; width: 30px; height: 30px;
-      animation: spin 1s linear infinite; margin: 0 auto 16px;
+      border: 3px solid #f3f3f3;
+      border-top: 3px solid #2688eb;
+      border-radius: 50%;
+      width: 30px;
+      height: 30px;
+      animation: spin 1s linear infinite;
+      margin: 0 auto 16px;
     }
-    @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
-    h2 { font-size: 18px; margin: 0 0 8px; }
-    p { font-size: 14px; color: #626d7a; margin: 0; }
-    .error { color: #e54242; }
+
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+
+    h2 {
+      font-size: 18px;
+      margin: 0 0 8px;
+    }
+
+    p {
+      font-size: 14px;
+      line-height: 1.5;
+      color: #626d7a;
+      margin: 0;
+      overflow-wrap: anywhere;
+    }
+
+    .error {
+      color: #e54242;
+    }
   </style>
 </head>
-<body>
 
+<body>
   <div class="box">
     <div id="loading-icon" class="loader"></div>
-    <h2 id="title">Авторизация VK ID...</h2>
-    <p id="desc">Пожалуйста, подтвердите доступ к номеру телефона в появившемся окне.</p>
+    <h2 id="title">Подготовка авторизации...</h2>
+    <p id="desc">Пожалуйста, подтвердите доступ к номеру телефона в окне VK ID.</p>
   </div>
 
   <script>
-    // 💥 ПОСТОЯННЫЙ АДРЕС ВАШЕГО ВЕБХУКА N8N
-    const N8N_URL = 'https://drickquifouruboz.beget.app/webhook/cdf6e608-7de6-439d-b0aa-49330642a3f1';
+    // Адрес вебхука n8n
+    const N8N_URL =
+      'https://drickquifouruboz.beget.app/webhook/cdf6e608-7de6-439d-b0aa-49330642a3f1';
 
-    // Извлекаем vk_user_id из хэша ссылки (#user_id=123)
+    // Получаем user_id из hash, переданного кнопкой VK
     const params = new URLSearchParams(location.hash.slice(1));
     const vkUserId = params.get('user_id');
 
@@ -48,65 +88,104 @@
     const descEl = document.getElementById('desc');
     const loaderEl = document.getElementById('loading-icon');
 
+    function showError(title, message) {
+      console.error(title, message);
+
+      loaderEl.style.display = 'none';
+      titleEl.className = 'error';
+      titleEl.textContent = title;
+      descEl.textContent = message;
+    }
+
     async function initAuth() {
       try {
-        if (window.vkBridge) {
-          // Инициализация моста VK
-          await window.vkBridge.send('VKWebAppInit');
-          
-          // 💥 Вызов официальной шторки верификации телефона VK ID
-          const data = await window.vkBridge.send('VKWebAppGetPhoneNumber');
-          
-          if (data && data.phone_number) {
-            loaderEl.style.display = 'block';
-            titleEl.textContent = 'Сохранение номера…';
-            descEl.textContent = 'Связываемся со сценарием n8n.';
-
-            // Отправляем чистый POST-запрос на ваш вебхук
-            const response = await fetch(N8N_URL, {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                source: 'vk_chat',
-                action: 'confirm_phone',
-                vk_user_id: vkUserId,
-                phone: data.phone_number
-              })
-            });
-
-            if (response.ok) {
-              titleEl.textContent = '🎉 Успешно!';
-              descEl.textContent = 'Номер подтвержден. Возвращаем вас в диалог...';
-              
-              // Закрываем окно вебвио/мини-аппа и возвращаем пользователя в чат
-              setTimeout(async () => {
-                await window.vkBridge.send('VKWebAppClose', { status: 'success' });
-              }, 1200);
-            } else {
-              throw new Error('n8n вернул ошибку при сохранении');
-            }
-          }
-        } else {
-          throw new Error('Окружение ВКонтакте не найдено');
+        // Проверяем, загрузился ли VK Bridge
+        if (!window.vkBridge || typeof window.vkBridge.send !== 'function') {
+          throw new Error(
+            'VK Bridge не загрузился. Проверьте подключение скрипта.'
+          );
         }
-      } catch (error) {
+
+        titleEl.textContent = 'Авторизация VK ID...';
+        descEl.textContent =
+          'Пожалуйста, подтвердите доступ к номеру телефона.';
+
+        // Инициализируем VK Bridge
+        await window.vkBridge.send('VKWebAppInit');
+
+        // Запрашиваем подтверждение номера телефона
+        const data = await window.vkBridge.send('VKWebAppGetPhoneNumber');
+
+        if (!data || !data.phone_number) {
+          throw new Error('VK не вернул подтверждённый номер телефона.');
+        }
+
+        loaderEl.style.display = 'block';
+        titleEl.className = '';
+        titleEl.textContent = 'Сохранение номера...';
+        descEl.textContent = 'Отправляем данные в n8n.';
+
+        // Отправляем данные в n8n
+        const response = await fetch(N8N_URL, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            source: 'vk_chat',
+            action: 'confirm_phone',
+            vk_user_id: vkUserId,
+            phone: data.phone_number
+          })
+        });
+
+        // Проверяем HTTP-статус ответа
+        if (!response.ok) {
+          const errorText = await response.text();
+          throw new Error(
+            `Ошибка n8n (${response.status}): ${errorText.slice(0, 250)}`
+          );
+        }
+
+        titleEl.textContent = '🎉 Номер отправлен!';
+        descEl.textContent =
+          'Данные переданы. Возвращаем вас в диалог...';
+
         loaderEl.style.display = 'none';
-        titleEl.className = 'error';
-        titleEl.textContent = 'Доступ отклонен';
-        descEl.textContent = 'Вы не подтвердили номер телефона или произошла ошибка сети. Попробуйте еще раз в боте.';
+
+        // Закрываем мини-приложение после успешной отправки
+        setTimeout(async () => {
+          try {
+            await window.vkBridge.send('VKWebAppClose', {
+              status: 'success'
+            });
+          } catch (closeError) {
+            console.error('Не удалось закрыть мини-приложение:', closeError);
+          }
+        }, 1200);
+
+      } catch (error) {
+        showError(
+          'Не удалось подтвердить номер',
+          error && error.message
+            ? error.message
+            : 'Произошла неизвестная ошибка. Попробуйте ещё раз.'
+        );
       }
     }
 
-    // Старт сценария сразу после загрузки страницы
-    window.onload = () => {
+    window.addEventListener('load', () => {
       if (!vkUserId) {
-        loaderEl.style.display = 'none';
-        titleEl.textContent = 'Ошибка сессии';
-        descEl.textContent = 'Не удалось определить ваш VK ID. Перезайдите по кнопке из бота.';
+        showError(
+          'Ошибка сессии',
+          'Не найден user_id в ссылке. Перезапустите приложение кнопкой из бота.'
+        );
         return;
       }
+
       initAuth();
-    };
+    });
   </script>
 </body>
 </html>
+```
