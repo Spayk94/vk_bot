@@ -122,7 +122,7 @@
         loaderEl.style.display = 'block';
         titleEl.className = '';
         titleEl.textContent = 'Сохранение номера...';
-        descEl.textContent = 'Отправляем данные в n8n.';
+        descEl.textContent = 'Еще немного...';
 
         // Отправляем данные в n8n
         const response = await fetch(N8N_URL, {
@@ -146,9 +146,9 @@
           );
         }
 
-        titleEl.textContent = '🎉 Номер отправлен!';
+        titleEl.textContent = '🎉 Номер подтвержден!';
         descEl.textContent =
-          'Данные переданы. Возвращаем вас в диалог...';
+          'Возвращаем вас в диалог...';
 
         loaderEl.style.display = 'none';
 
